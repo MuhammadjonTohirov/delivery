@@ -155,23 +155,13 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
         
         if action == 'accept':
-            order.status = 'CONFIRMED'
             status_note = note or "Order confirmed by restaurant."
+            order.update_status('CONFIRMED', request.user, notes=status_note)
         else:  # reject
-            order.status = 'CANCELLED'
             status_note = note or "Order rejected by restaurant."
+            order.update_status('CANCELLED', request.user, notes=status_note)
         
-        order.save()
-        
-        # Create status update
-        OrderStatusUpdate.objects.create(
-            order=order,
-            status=order.status,
-            updated_by=request.user,
-            notes=status_note
-        )
-        
-        serializer = OrderSerializer(order, context={'request': request})
+        serializer = self.get_serializer(order)
         return Response(serializer.data)
     
     @extend_schema(
@@ -197,18 +187,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        order.status = 'PREPARING'
-        order.save()
+        order.update_status('PREPARING', request.user, notes=note)
         
-        # Create status update
-        OrderStatusUpdate.objects.create(
-            order=order,
-            status='PREPARING',
-            updated_by=request.user,
-            notes=note
-        )
-        
-        serializer = OrderSerializer(order, context={'request': request})
+        serializer = self.get_serializer(order)
         return Response(serializer.data)
     
     @extend_schema(
@@ -235,16 +216,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         
         reason = request.data.get('reason', 'Cancelled by customer.')
         
-        order.status = 'CANCELLED'
-        order.save()
+        order.update_status('CANCELLED', request.user, notes=reason)
         
-        # Create status update
-        OrderStatusUpdate.objects.create(
-            order=order,
-            status='CANCELLED',
-            updated_by=request.user,
-            notes=reason
-        )
-        
-        serializer = OrderSerializer(order, context={'request': request})
+        serializer = self.get_serializer(order)
         return Response(serializer.data)

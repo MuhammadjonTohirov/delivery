@@ -19,7 +19,7 @@ def cancel_timed_out_orders(timeout_minutes=20):
     """
     # Use apps.get_model to avoid circular imports
     Order = apps.get_model('orders', 'Order')
-    OrderStatusUpdate = apps.get_model('orders', 'OrderStatusUpdate')
+    # No need to import OrderStatusUpdate if the model method handles it.
     
     cutoff_time = timezone.now() - timedelta(minutes=timeout_minutes)
     
@@ -33,16 +33,14 @@ def cancel_timed_out_orders(timeout_minutes=20):
     
     # Cancel each order
     for order in orders_to_cancel:
-        order.status = 'CANCELLED'
-        order.save()
-        
-        # Create a status update record
-        OrderStatusUpdate.objects.create(
-            order=order,
-            status='CANCELLED',
+        # Use the new update_status method.
+        # Pass None for updated_by_user, as this is a system action.
+        # The Order.update_status method will create the OrderStatusUpdate record.
+        order.update_status(
+            new_status='CANCELLED',
+            updated_by_user=None, 
             notes='Automatically cancelled due to restaurant inactivity.'
         )
-        
         cancelled_count += 1
-    
+            
     return cancelled_count
