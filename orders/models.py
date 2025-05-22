@@ -36,6 +36,24 @@ class Order(models.Model):
     def __str__(self):
         return f"Order {self.id} by {self.customer.full_name} at {self.restaurant.name}"
 
+    def update_status(self, new_status, updated_by_user, notes=""):
+        # Ensure new_status is a valid choice.
+        if new_status not in [choice[0] for choice in self.ORDER_STATUS_CHOICES]:
+            # Or raise a ValueError, depending on desired handling
+            print(f"Warning: Invalid status '{new_status}' attempted for order {self.id}") 
+            return 
+
+        self.status = new_status
+        self.save()  # Save the Order instance first
+
+        # Create the OrderStatusUpdate record
+        OrderStatusUpdate.objects.create(
+            order=self,
+            status=self.status,
+            updated_by=updated_by_user,
+            notes=notes
+        )
+
 
 class OrderItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
