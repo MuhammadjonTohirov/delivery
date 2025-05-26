@@ -51,9 +51,6 @@ class RestaurantViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset() # Get the original queryset
         if self.action == 'list':
             queryset = queryset.annotate(average_rating_annotated=Avg('reviews__rating'))
-        # Optionally, for 'retrieve' action, you could add the annotation too if needed by RestaurantSerializer
-        # if self.action == 'retrieve':
-        //     queryset = queryset.annotate(average_rating_annotated=Avg('reviews__rating'))
         return queryset
     
     def get_serializer_class(self):

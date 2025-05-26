@@ -85,3 +85,13 @@ class DriverTaskListView(TemplateView):
 
 class DriverEarningsView(TemplateView):
     template_name = "drivers/earnings_report.html"
+
+class CustomerOrderListView(TemplateView):
+    template_name = "orders/customer_order_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Example: Fetch orders for the logged-in customer (if using session auth)
+        # If using JWT, this should be handled via API and JS
+        context['orders'] = []  # Placeholder, should be replaced with real data or left for JS
+        return context
