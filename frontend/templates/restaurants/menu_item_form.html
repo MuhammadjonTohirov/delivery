@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_type }} - Menu Management{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>{{ form_type }}</h2>
+    <form id="menu-item-form" class="mt-4" enctype="multipart/form-data">
+        <input type="hidden" id="itemId" value="{{ item_id }}">
+        <input type="hidden" id="categoryIdForNewItem" value="{{ category_id }}"> <!-- For creating item under specific category -->
+
+        <div class="mb-3">
+            <label for="itemName" class="form-label">Item Name</label>
+            <input type="text" class="form-control" id="itemName" name="name" required>
+        </div>
+        <div class="mb-3">
+            <label for="itemDescription" class="form-label">Description (Optional)</label>
+            <textarea class="form-control" id="itemDescription" name="description" rows="3"></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="itemPrice" class="form-label">Price</label>
+            <input type="number" step="0.01" class="form-control" id="itemPrice" name="price" required>
+        </div>
+        <div class="mb-3">
+            <label for="itemCategory" class="form-label">Category</label>
+            <select class="form-select" id="itemCategory" name="category" required>
+                <option value="">Select a category...</option>
+                <!-- Categories will be loaded here by JavaScript -->
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="itemPreparationTime" class="form-label">Preparation Time (minutes, Optional)</label>
+            <input type="number" class="form-control" id="itemPreparationTime" name="preparation_time">
+        </div>
+        <div class="mb-3">
+            <label for="itemImage" class="form-label">Image (Optional)</label>
+            <input type="file" class="form-control" id="itemImage" name="image" accept="image/*">
+            <div id="current-item-image-container" class="mt-2">
+                <img id="current-item-image" src="#" alt="Current Item Image" style="max-height: 100px; display: none;">
+            </div>
+        </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="itemIsAvailable" name="is_available" checked>
+            <label class="form-check-label" for="itemIsAvailable">
+                Item is available
+            </label>
+        </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="itemIsFeatured" name="is_featured">
+            <label class="form-check-label" for="itemIsFeatured">
+                Item is featured
+            </label>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Save Menu Item</button>
+        <a href="{% url 'webapp:menu_management' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const menuItemForm = document.getElementById('menu-item-form');
+    const itemIdInput = document.getElementById('itemId');
+    const categoryIdForNewItemInput = document.getElementById('categoryIdForNewItem'); // For pre-selecting category
+    
+    const itemNameInput = document.getElementById('itemName');
+    const itemDescriptionInput = document.getElementById('itemDescription');
+    const itemPriceInput = document.getElementById('itemPrice');
+    const itemCategorySelect = document.getElementById('itemCategory');
+    const itemPreparationTimeInput = document.getElementById('itemPreparationTime');
+    const itemImageInput = document.getElementById('itemImage');
+    const currentItemImage = document.getElementById('current-item-image');
+    const itemIsAvailableCheckbox = document.getElementById('itemIsAvailable');
+    const itemIsFeaturedCheckbox = document.getElementById('itemIsFeatured');
+    
+    const accessToken = localStorage.getItem('accessToken');
+    const isEditMode = itemIdInput.value !== '' && itemIdInput.value !== 'None';
+    let myRestaurantId = null;
+
+    if (!accessToken) {
+        window.location.href = "{% url 'login' %}?next=" + window.location.pathname;
+        return;
+    }
+
+    function fetchAPI(endpoint, method = 'GET', body = null, isFormData = false) {
+        const headers = {};
+        if (!isFormData) { // For FormData, browser sets Content-Type
+            headers['Content-Type'] = 'application/json';
+        }
+        headers['Authorization'] = `Bearer ${accessToken}`;
+        
+        const config = { method: method, headers: headers };
+        if (body) config.body = body;
+        
+        return fetch(endpoint, config).then(response => {
+            if (!response.ok) return response.json().then(err => { throw err; });
+            // For 204 No Content or successful file upload with no JSON body
+            if (response.status === 204 || (response.ok && response.headers.get("Content-Length") === "0" && method !== 'GET')) return null; 
+            return response.json();
+        });
+    }
+
+    function loadCategories(selectedCategoryId = null) {
+        if (!myRestaurantId) return;
+        fetchAPI(`/api/categories/?restaurant=${myRestaurantId}&page_size=1000`) // Get all categories for the restaurant
+            .then(data => {
+                const categories = data.results || data; // Handle paginated or direct list
+                itemCategorySelect.innerHTML = '<option value="">Select a category...</option>'; // Clear old options
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = category.name;
+                    if (selectedCategoryId && category.id === selectedCategoryId) {
+                        option.selected = true;
+                    }
+                    itemCategorySelect.appendChild(option);
+                });
+                 // If creating new item under a specific category (passed from URL context)
+                const preselectCategoryId = categoryIdForNewItemInput.value;
+                if (preselectCategoryId && preselectCategoryId !== 'None' && !isEditMode) {
+                    itemCategorySelect.value = preselectCategoryId;
+                }
+            })
+            .catch(error => console.error('Error loading categories:', error));
+    }
+
+    // Get Restaurant ID first, then load categories and item data if editing
+    fetchAPI('/api/restaurants/mine/')
+        .then(restaurantData => {
+            if (restaurantData && restaurantData.id) {
+                myRestaurantId = restaurantData.id;
+                loadCategories(); // Load categories once restaurant ID is known
+                if (isEditMode) {
+                    loadMenuItemData(itemIdInput.value);
+                }
+            } else {
+                throw new Error("Could not identify your restaurant.");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching restaurant ID:", error);
+            alert("Could not verify your restaurant. Please try again. " + (error.detail || error.message));
+            menuItemForm.innerHTML = '<p class="text-danger">Cannot load form.</p>';
+        });
+
+    function loadMenuItemData(itemId) {
+        fetchAPI(`/api/menu-items/${itemId}/`)
+            .then(data => {
+                itemNameInput.value = data.name || '';
+                itemDescriptionInput.value = data.description || '';
+                itemPriceInput.value = data.price || '';
+                itemPreparationTimeInput.value = data.preparation_time || '';
+                itemIsAvailableCheckbox.checked = data.is_available !== undefined ? data.is_available : true;
+                itemIsFeaturedCheckbox.checked = data.is_featured || false;
+                
+                if (data.category) { // data.category might be just ID or nested object
+                    const categoryIdToSelect = typeof data.category === 'object' ? data.category.id : data.category;
+                    // Ensure categories are loaded before trying to select one
+                    if (itemCategorySelect.options.length > 1) { // More than just "Select..."
+                         itemCategorySelect.value = categoryIdToSelect;
+                    } else {
+                        // Categories not loaded yet, re-call loadCategories with the ID to select
+                        loadCategories(categoryIdToSelect);
+                    }
+                }
+
+                if (data.image) {
+                    currentItemImage.src = data.image;
+                    currentItemImage.style.display = 'block';
+                } else {
+                    currentItemImage.style.display = 'none';
+                }
+                // Ensure restaurant ID matches
+                if (data.restaurant !== myRestaurantId) {
+                    alert("Error: This menu item does not belong to your restaurant.");
+                    window.location.href = "{% url 'webapp:menu_management' %}";
+                }
+            })
+            .catch(error => {
+                console.error('Error loading menu item data:', error);
+                alert('Failed to load menu item data. ' + (error.detail || JSON.stringify(error)));
+            });
+    }
+
+    menuItemForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        if (!myRestaurantId) {
+            alert("Your restaurant information is not available. Cannot save item.");
+            return;
+        }
+
+        const formData = new FormData(menuItemForm);
+        // formData.append('restaurant', myRestaurantId); // API should set this based on auth user
+
+        // Boolean fields need to be 'true' or 'false' strings if not handled by FormData correctly for checkboxes
+        // However, DRF usually handles checkbox values from FormData (on/off or value)
+        // If 'is_available' or 'is_featured' are not in formData when unchecked, add them as false.
+        if (!formData.has('is_available')) formData.append('is_available', false);
+        if (!formData.has('is_featured')) formData.append('is_featured', false);
+        
+        // The MenuItemSerializer expects 'restaurant' to be set.
+        // The perform_create/perform_update in MenuItemViewSet should handle setting the restaurant
+        // based on the authenticated user (request.user.restaurant).
+        // So, we don't strictly need to send `restaurant` in the FormData if the backend handles it.
+        // However, for PUT/PATCH, the `restaurant` field might be validated.
+        // Let's ensure it's there for safety, especially if the serializer requires it.
+        formData.append('restaurant', myRestaurantId);
+
+
+        let url = '/api/menu-items/';
+        let method = 'POST';
+
+        if (isEditMode) {
+            url += `${itemIdInput.value}/`;
+            method = 'PUT'; // Or PATCH. PUT requires all fields. PATCH for partial.
+                           // Using PUT, ensure all fields are sent or serializer allows partial.
+                           // If image is not re-uploaded, it should not be cleared.
+                           // DRF's ModelSerializer with FileField handles this: if no new file, old one is kept.
+        }
+
+
+        fetchAPI(url, method, formData, true) // true for FormData
+            .then(data => {
+                alert(`Menu item ${isEditMode ? 'updated' : 'created'} successfully!`);
+                window.location.href = "{% url 'webapp:menu_management' %}";
+            })
+            .catch(error => {
+                console.error(`Error ${isEditMode ? 'updating' : 'creating'} menu item:`, error);
+                let errorMessage = `Failed to ${isEditMode ? 'update' : 'create'} menu item.\n`;
+                 if (typeof error === 'object' && error !== null) {
+                    for (const key in error) {
+                        errorMessage += `${key}: ${Array.isArray(error[key]) ? error[key].join(', ') : error[key]}\n`;
+                    }
+                } else {
+                    errorMessage += error;
+                }
+                alert(errorMessage.trim());
+            });
+    });
+});
+</script>
+{% endblock %}

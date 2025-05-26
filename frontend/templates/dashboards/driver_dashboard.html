@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Driver Dashboard - Delivery Platform{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Welcome, {{ user.full_name }}! (Driver Dashboard)</h1>
+    <p>Manage your availability, view assigned tasks, and track your earnings.</p>
+
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">My Availability</h5>
+                    <p class="card-text">Set your status to online/offline.</p>
+                    <!-- Availability toggle will go here -->
+                    <button class="btn btn-success" id="go-online-btn">Go Online</button>
+                    <button class="btn btn-danger" id="go-offline-btn">Go Offline</button>
+                    <p id="availability-status" class="mt-2">Current Status: <span class="fw-bold">Unknown</span></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Active Task</h5>
+                    <p class="card-text">View details of your current delivery task.</p>
+                    <!-- Active task details will be loaded here -->
+                    <div id="active-task-details">
+                        <p>No active task.</p>
+                    </div>
+                    <a href="{% url 'webapp:driver_task_list' %}" class="btn btn-primary mt-2" id="view-tasks-btn">View All Tasks</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">My Earnings</h5>
+                    <p class="card-text">Track your earnings from deliveries.</p>
+                    <a href="{% url 'webapp:driver_earnings_report' %}" class="btn btn-info">View Earnings Report</a>
+                     <a href="{% url 'webapp:profile' %}" class="btn btn-secondary mt-2">Edit Profile</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-5">
+        <h3>Available Tasks</h3>
+        <!-- List of tasks available for pickup could go here, or new task notifications -->
+        <p>Listening for new tasks...</p>
+    </div>
+</div>
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const goOnlineBtn = document.getElementById('go-online-btn');
+    const goOfflineBtn = document.getElementById('go-offline-btn');
+    const availabilityStatusEl = document.getElementById('availability-status').querySelector('span');
+    const activeTaskDetailsEl = document.getElementById('active-task-details');
+    const accessToken = localStorage.getItem('accessToken');
+
+    function fetchAPI(endpoint, method = 'GET', body = null) {
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+        };
+        const config = {
+            method: method,
+            headers: headers
+        };
+        if (body) {
+            config.body = JSON.stringify(body);
+        }
+        return fetch(endpoint, config)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                // For 204 No Content or similar, response.json() will fail
+                if (response.status === 204 || response.status === 205) return null; 
+                return response.json();
+            });
+    }
+
+    function updateAvailabilityStatus(status) {
+        availabilityStatusEl.textContent = status || 'Error';
+        availabilityStatusEl.className = status === 'AVAILABLE' ? 'fw-bold text-success' : (status === 'BUSY' ? 'fw-bold text-warning' : 'fw-bold text-danger');
+    }
+
+    function getAvailability() {
+        fetchAPI('/api/drivers/availability/me/')
+            .then(data => {
+                if (data && data.status) {
+                    updateAvailabilityStatus(data.status);
+                } else {
+                     updateAvailabilityStatus('OFFLINE'); // Default if not found
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching availability:', error);
+                updateAvailabilityStatus('Error');
+            });
+    }
+
+    function getActiveTask() {
+        fetchAPI('/api/drivers/tasks/active/')
+            .then(data => {
+                if (data && data.id) {
+                    activeTaskDetailsEl.innerHTML = `
+                        <p><strong>Order ID:</strong> ${data.order_details.id.substring(0,8)}...</p>
+                        <p><strong>Status:</strong> ${data.status}</p>
+                        <p><strong>Restaurant:</strong> ${data.order_details.restaurant_name}</p>
+                        <p><strong>Delivery Address:</strong> ${data.order_details.delivery_address}</p>
+                        <a href="#" class="btn btn-sm btn-info">View Details</a>
+                    `;
+                    // Add buttons to accept/reject/pickup/deliver based on status
+                } else {
+                    activeTaskDetailsEl.innerHTML = '<p>No active task.</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching active task:', error);
+                activeTaskDetailsEl.innerHTML = '<p>Error loading task.</p>';
+            });
+    }
+
+
+    if (accessToken) {
+        getAvailability();
+        getActiveTask(); // Also load active task on page load
+
+        goOnlineBtn.addEventListener('click', () => {
+            fetchAPI('/api/drivers/availability/go_online/', 'POST')
+                .then(data => {
+                    if (data && data.status) updateAvailabilityStatus(data.status);
+                })
+                .catch(error => {
+                    alert('Could not go online. ' + (error.detail || ''));
+                    console.error('Error going online:', error);
+                });
+        });
+
+        goOfflineBtn.addEventListener('click', () => {
+            fetchAPI('/api/drivers/availability/go_offline/', 'POST')
+                .then(data => {
+                     if (data && data.status) updateAvailabilityStatus(data.status);
+                })
+                .catch(error => {
+                    alert('Could not go offline. ' + (error.detail || ''));
+                    console.error('Error going offline:', error);
+                });
+        });
+    } else {
+        // Handle case where user is not logged in or token is missing
+        availabilityStatusEl.textContent = 'Not Logged In';
+        activeTaskDetailsEl.innerHTML = '<p>Please login to view tasks.</p>';
+        goOnlineBtn.disabled = true;
+        goOfflineBtn.disabled = true;
+    }
+});
+</script>
+{% endblock %}

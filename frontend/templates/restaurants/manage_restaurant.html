@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Manage My Restaurant - Delivery Platform{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Manage My Restaurant</h2>
+    <p>Update your restaurant's information, opening hours, and other settings.</p>
+
+    <form id="manage-restaurant-form" class="mt-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Restaurant Details</h5>
+                
+                <div class="mb-3">
+                    <label for="restaurantName" class="form-label">Restaurant Name</label>
+                    <input type="text" class="form-control" id="restaurantName" name="name" required>
+                </div>
+                <div class="mb-3">
+                    <label for="restaurantAddress" class="form-label">Address</label>
+                    <textarea class="form-control" id="restaurantAddress" name="address" rows="2" required></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="restaurantDescription" class="form-label">Description</label>
+                    <textarea class="form-control" id="restaurantDescription" name="description" rows="3"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="restaurantLocationLat" class="form-label">Latitude</label>
+                        <input type="number" step="any" class="form-control" id="restaurantLocationLat" name="location_lat">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="restaurantLocationLng" class="form-label">Longitude</label>
+                        <input type="number" step="any" class="form-control" id="restaurantLocationLng" name="location_lng">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="restaurantLogo" class="form-label">Logo Image</label>
+                    <input type="file" class="form-control" id="restaurantLogo" name="logo" accept="image/*">
+                    <small class="form-text text-muted">Leave blank to keep current logo. New logo will replace the old one.</small>
+                    <div id="current-logo-container" class="mt-2">
+                        <img id="current-logo-img" src="#" alt="Current Logo" style="max-height: 100px; display: none;">
+                    </div>
+                </div>
+
+                <h5 class="card-title mt-4">Operational Settings</h5>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="restaurantIsOpen" name="is_open">
+                    <label class="form-check-label" for="restaurantIsOpen">
+                        Restaurant is currently open
+                    </label>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="restaurantOpeningTime" class="form-label">Opening Time</label>
+                        <input type="time" class="form-control" id="restaurantOpeningTime" name="opening_time">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="restaurantClosingTime" class="form-label">Closing Time</label>
+                        <input type="time" class="form-control" id="restaurantClosingTime" name="closing_time">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+        window.location.href = "{% url 'webapp:login' %}?next=" + window.location.pathname;
+        return;
+    }
+
+    const manageRestaurantForm = document.getElementById('manage-restaurant-form');
+    const currentLogoImg = document.getElementById('current-logo-img');
+    const currentLogoContainer = document.getElementById('current-logo-container');
+    let restaurantId = null; // Will be fetched
+
+    function fetchAPI(endpoint, method = 'GET', body = null, isFormData = false) {
+        const headers = {};
+        if (!isFormData) {
+            headers['Content-Type'] = 'application/json';
+        }
+        headers['Authorization'] = `Bearer ${accessToken}`;
+        
+        const config = { method: method, headers: headers };
+        if (body) config.body = body; // body will be FormData or JSON.stringify(body)
+        
+        return fetch(endpoint, config).then(response => {
+            if (!response.ok) return response.json().then(err => { throw err; });
+            return response.status === 204 ? null : response.json();
+        });
+    }
+    
+    // Function to get the user's restaurant ID first from their profile
+    function getMyRestaurantIdAndLoadData() {
+        fetchAPI('/api/users/profile/') // Assuming this returns the user's restaurant ID if they are an owner
+            .then(profileData => {
+                if (profileData.role === 'RESTAURANT' && profileData.restaurant_profile && profileData.restaurant_profile.id) {
+                    // The user profile serializer needs to expose the restaurant ID.
+                    // Let's assume the restaurant ID is directly on the user.restaurant object from the backend.
+                    // This part depends on how your UserSerializer exposes the related restaurant ID.
+                    // A common way is to have a restaurant field on the user model or a direct link.
+                    // For now, I'll assume the restaurant ID is available via a dedicated endpoint or user profile.
+                    // If not, the RestaurantSerializer on user profile needs to include the restaurant ID.
+                    // Let's try to fetch the restaurant directly assuming the user has one.
+                    // A better approach would be a dedicated endpoint like /api/restaurants/my-restaurant/
+                    
+                    // Attempt to find the restaurant associated with the user.
+                    // This is a placeholder. In a real app, you'd have a reliable way to get the user's restaurant.
+                    // For instance, the user profile endpoint could return the ID of their restaurant.
+                    // Or, you might have a dedicated endpoint like `/api/restaurants/mine/`
+                    
+                    // Let's assume the user's profile includes their restaurant's ID.
+                    // The `UserSerializer` in `users/serializers.py` would need to be updated
+                    // to include `restaurant_id = serializers.ReadOnlyField(source='restaurant.id')`
+                    // if the `CustomUser` model has a `restaurant` one-to-one field.
+                    // Given the current models, `Restaurant` has a `user` field.
+                    // So, we'd fetch all restaurants and filter by user, or have a dedicated endpoint.
+                    // For simplicity, I'll assume we can get the restaurant ID from the user's profile.
+                    // This is a common pattern. If `user.restaurant` is the related Restaurant object:
+                    // The UserSerializer should expose `restaurant.id`.
+                    // Let's assume `profileData.restaurant.id` exists.
+                    // This is a simplification. The UserSerializer needs to provide this.
+                    // A more robust way: fetch restaurants and filter by user.id, or a dedicated endpoint.
+                    // For now, let's assume the user profile endpoint gives us the restaurant ID.
+                    // The `Restaurant` model has `user = models.OneToOneField(settings.AUTH_USER_MODEL, ...)`
+                    // So, `user.restaurant` should give the restaurant.
+                    // The `UserSerializer` should include a nested `RestaurantSerializer` or just its ID.
+                    // The current `UserSerializer` does not directly expose the restaurant ID.
+                    // Let's modify the logic to fetch the restaurant via a query if not directly available.
+                    
+                    // A practical way: The RestaurantViewSet's list endpoint can be filtered by `user=request.user.id`
+                    // Or a custom action on RestaurantViewSet: `/api/restaurants/mine/`
+                    // For now, let's assume we get the restaurant ID from the user's profile.
+                    // This requires `UserSerializer` to provide `restaurant_id`.
+                    // If `user.restaurant` is the related object:
+                    // `restaurant_id = serializers.CharField(source='restaurant.id', read_only=True)` in UserSerializer.
+                    // Let's assume this is done.
+                    
+                    // A more direct way for a restaurant owner to get their restaurant:
+                    // Create a custom action in RestaurantViewSet:
+                    // @action(detail=False, methods=['get'], permission_classes=[IsRestaurantOwner])
+                    // def mine(self, request):
+                    //    serializer = self.get_serializer(request.user.restaurant)
+                    //    return Response(serializer.data)
+                    // Then fetch from `/api/restaurants/mine/`
+                    
+                    // Using the "mine" endpoint approach:
+                    return fetchAPI('/api/restaurants/mine/'); // Assuming this endpoint exists
+                } else {
+                    throw new Error("User is not a restaurant owner or restaurant ID not found in profile.");
+                }
+            })
+            .then(restaurantData => {
+                restaurantId = restaurantData.id;
+                populateForm(restaurantData);
+            })
+            .catch(error => {
+                console.error("Error fetching user's restaurant:", error);
+                alert("Could not load your restaurant data. " + (error.detail || error.message || "Ensure you are registered as a restaurant owner."));
+                // Optionally redirect or disable form
+                manageRestaurantForm.innerHTML = '<p class="text-danger">Could not load restaurant data.</p>';
+            });
+    }
+
+
+    function populateForm(data) {
+        document.getElementById('restaurantName').value = data.name || '';
+        document.getElementById('restaurantAddress').value = data.address || '';
+        document.getElementById('restaurantDescription').value = data.description || '';
+        document.getElementById('restaurantLocationLat').value = data.location_lat || '';
+        document.getElementById('restaurantLocationLng').value = data.location_lng || '';
+        document.getElementById('restaurantIsOpen').checked = data.is_open || false;
+        document.getElementById('restaurantOpeningTime').value = data.opening_time || '';
+        document.getElementById('restaurantClosingTime').value = data.closing_time || '';
+
+        if (data.logo) {
+            currentLogoImg.src = data.logo;
+            currentLogoImg.style.display = 'block';
+        } else {
+            currentLogoImg.style.display = 'none';
+        }
+    }
+
+    manageRestaurantForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        if (!restaurantId) {
+            alert("Restaurant ID not found. Cannot update.");
+            return;
+        }
+
+        const formData = new FormData(manageRestaurantForm);
+        // For file uploads, you don't stringify, and Content-Type is handled by browser
+        
+        // API expects PATCH for updates. If creating, it would be POST.
+        // The RestaurantViewSet should handle PATCH for partial updates.
+        // If logo is not provided, it should not be cleared by the backend unless explicitly set to null.
+        // DRF handles file uploads with FormData correctly.
+
+        fetchAPI(`/api/restaurants/${restaurantId}/`, 'PATCH', formData, true) // true for FormData
+            .then(updatedData => {
+                alert('Restaurant details updated successfully!');
+                populateForm(updatedData); // Refresh form with new data (especially if logo URL changes)
+            })
+            .catch(error => {
+                console.error('Error updating restaurant:', error);
+                let errorMessage = 'Failed to update restaurant.\n';
+                 if (typeof error === 'object' && error !== null) {
+                    for (const key in error) {
+                        errorMessage += `${key}: ${Array.isArray(error[key]) ? error[key].join(', ') : error[key]}\n`;
+                    }
+                } else {
+                    errorMessage += error;
+                }
+                alert(errorMessage.trim());
+            });
+    });
+
+    // Initial load of restaurant data
+    // This requires a way to get the current user's restaurant ID.
+    // For now, assuming an endpoint `/api/restaurants/mine/` that returns the restaurant for the logged-in owner.
+    // This endpoint needs to be created in `restaurants/views.py` in the `RestaurantViewSet`.
+    // Example:
+    // @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
+    // def mine(self, request):
+    //     try:
+    //         restaurant = Restaurant.objects.get(user=request.user)
+    //         serializer = self.get_serializer(restaurant)
+    //         return Response(serializer.data)
+    //     except Restaurant.DoesNotExist:
+    //         return Response({"detail": "Restaurant not found for this user."}, status=status.HTTP_404_NOT_FOUND)
+    
+    // Call the function to load data
+    getMyRestaurantIdAndLoadData();
+
+});
+</script>
+{% endblock %}

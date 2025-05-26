@@ -147,11 +147,14 @@ class OrderListSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(source='customer.full_name', read_only=True)
     restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
     item_count = serializers.SerializerMethodField()
-    
+    items = OrderItemSerializer(many=True, read_only=True) # Added for order items
+    status_display = serializers.CharField(source='get_status_display', read_only=True) # Added for display status
+
     class Meta:
         model = Order
-        fields = ['id', 'customer_name', 'restaurant_name', 'status', 
-                  'total_price', 'created_at', 'item_count']
-    
+        fields = ['id', 'customer_name', 'restaurant_name', 'status', 'status_display',
+                  'delivery_address', 'notes', # Added fields
+                  'total_price', 'created_at', 'item_count', 'items'] # Added items
+
     def get_item_count(self, obj):
         return obj.items.count()

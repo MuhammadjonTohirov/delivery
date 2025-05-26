@@ -21,6 +21,9 @@ urlpatterns = [
     path('api/restaurants/', include('restaurants.urls')),
     path('api/orders/', include('orders.urls')),
     path('api/drivers/', include('drivers.urls')),
+    
+    # Frontend URLs
+    path('', include('webapp.urls')),
 ]
 
 # Serve media files in development

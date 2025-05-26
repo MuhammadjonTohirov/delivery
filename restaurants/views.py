@@ -1,8 +1,11 @@
 from rest_framework import viewsets, permissions, status, filters
+import uuid # Added for statistics pk conversion
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Restaurant, MenuCategory, MenuItem, RestaurantReview
+from orders.models import Order # Added for statistics
+from django.db.models import Count # Added for statistics
 from .serializers import (
     RestaurantSerializer, 
     RestaurantListSerializer,
@@ -82,6 +85,63 @@ class RestaurantViewSet(viewsets.ModelViewSet):
         serializer = RestaurantReviewSerializer(reviews, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Get my restaurant",
+        description="Get the restaurant details for the currently authenticated restaurant owner."
+    )
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsRestaurantOwner])
+    def mine(self, request):
+        try:
+            # The Restaurant model has a OneToOneField to User named 'user'
+            # So, request.user.restaurant should give the related Restaurant instance.
+            restaurant = request.user.restaurant
+            serializer = self.get_serializer(restaurant)
+            return Response(serializer.data)
+        except Restaurant.DoesNotExist: # This might be AttributeError if 'restaurant' related_name isn't set up or user has no restaurant
+            return Response({"detail": "Restaurant not found for this user."}, status=status.HTTP_404_NOT_FOUND)
+        except AttributeError: # If request.user doesn't have a 'restaurant' attribute
+             return Response({"detail": "No restaurant associated with this user account."}, status=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(
+        summary="Get restaurant statistics",
+        description="Get basic statistics for the currently authenticated restaurant owner's restaurant."
+    )
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsRestaurantOwner])
+    def statistics(self, request, pk=None):
+        # Ensure the pk matches the user's restaurant if provided,
+        # or ideally, fetch the restaurant via request.user.restaurant
+        try:
+            restaurant_obj = request.user.restaurant # Use a different variable name to avoid conflict with model name
+            if pk and restaurant_obj.id != uuid.UUID(pk): # Check against the fetched restaurant's ID
+                 return Response({"detail": "Access to this restaurant's statistics is forbidden."}, status=status.HTTP_403_FORBIDDEN)
+            # If pk was not provided, or if it matched, restaurant_obj is the one we use.
+        except AttributeError: # This means request.user.restaurant doesn't exist
+            return Response({"detail": "No restaurant associated with this user account."}, status=status.HTTP_404_NOT_FOUND)
+        # Restaurant.DoesNotExist is not directly applicable here as we access via user.restaurant
+        # If user.restaurant itself is None or raises DoesNotExist on access, AttributeError is more likely for the direct access.
+        # However, if request.user.restaurant was a lazy object that could raise DoesNotExist, the original except was fine.
+        # Given the OneToOneField, AttributeError is the primary concern if the relation isn't populated or user has no restaurant.
+
+        total_orders = Order.objects.filter(restaurant=restaurant_obj).count()
+        total_menu_items = MenuItem.objects.filter(restaurant=restaurant_obj).count()
+        
+        orders_by_status = Order.objects.filter(restaurant=restaurant_obj)\
+            .values('status')\
+            .annotate(count=Count('status'))\
+            .order_by('status')
+            
+        # Convert to a more friendly format
+        status_counts = {item['status']: item['count'] for item in orders_by_status}
+
+        data = {
+            'restaurant_id': restaurant_obj.id,
+            'restaurant_name': restaurant_obj.name,
+            'total_orders': total_orders,
+            'total_menu_items': total_menu_items,
+            'orders_by_status': status_counts,
+            # Add more stats here later, e.g., revenue, popular items
+        }
+        return Response(data)
 
 @extend_schema_view(
     list=extend_schema(summary="List menu categories", description="List all menu categories for a restaurant"),
@@ -96,8 +156,11 @@ class MenuCategoryViewSet(viewsets.ModelViewSet):
     ViewSet for MenuCategory model.
     """
     serializer_class = MenuCategorySerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['restaurant']
     
     def get_queryset(self):
+        # The filtering by restaurant_id from query_params will be handled by DjangoFilterBackend
         return MenuCategory.objects.all()
     
     def get_permissions(self):

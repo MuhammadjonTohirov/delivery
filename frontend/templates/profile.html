@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile - Delivery Platform{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>My Profile</h2>
+    <div id="profile-details" class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">User Information</h5>
+            <p><strong>Full Name:</strong> <span id="profile-full-name">Loading...</span></p>
+            <p><strong>Email:</strong> <span id="profile-email">Loading...</span></p>
+            <p><strong>Phone:</strong> <span id="profile-phone">Loading...</span></p>
+            <p><strong>Role:</strong> <span id="profile-role">Loading...</span></p>
+            <p><strong>Joined:</strong> <span id="profile-date-joined">Loading...</span></p>
+        </div>
+    </div>
+
+    <div id="role-specific-profile" class="card mb-4">
+        <!-- Content will be loaded by JavaScript based on user role -->
+        <div class="card-body">
+            <h5 class="card-title">Profile Details</h5>
+            <div id="profile-specific-content">Loading role-specific details...</div>
+        </div>
+    </div>
+    
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editProfileModal">Edit Profile</button>
+    <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#changePasswordModal">Change Password</button>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editProfileModalLabel">Edit Profile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-profile-form">
+                        <!-- Common Fields -->
+                        <div class="mb-3">
+                            <label for="editFullName" class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="editFullName" name="full_name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPhone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="editPhone" name="phone">
+                        </div>
+                        
+                        <!-- Customer Specific Fields -->
+                        <div id="edit-customer-fields" class="role-specific-edit-fields" style="display:none;">
+                            <div class="mb-3">
+                                <label for="editDefaultAddress" class="form-label">Default Address</label>
+                                <textarea class="form-control" id="editDefaultAddress" name="customer_profile.default_address" rows="2"></textarea>
+                            </div>
+                             <div class="mb-3">
+                                <label for="editDefaultLocationLat" class="form-label">Default Location Latitude</label>
+                                <input type="number" step="any" class="form-control" id="editDefaultLocationLat" name="customer_profile.default_location_lat">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editDefaultLocationLng" class="form-label">Default Location Longitude</label>
+                                <input type="number" step="any" class="form-control" id="editDefaultLocationLng" name="customer_profile.default_location_lng">
+                            </div>
+                        </div>
+
+                        <!-- Restaurant Specific Fields -->
+                        <div id="edit-restaurant-fields" class="role-specific-edit-fields" style="display:none;">
+                            <div class="mb-3">
+                                <label for="editBusinessName" class="form-label">Business Name</label>
+                                <input type="text" class="form-control" id="editBusinessName" name="restaurant_profile.business_name">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editBusinessAddress" class="form-label">Business Address</label>
+                                <textarea class="form-control" id="editBusinessAddress" name="restaurant_profile.business_address" rows="2"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editBusinessRegNumber" class="form-label">Business Registration Number</label>
+                                <input type="text" class="form-control" id="editBusinessRegNumber" name="restaurant_profile.business_registration_number">
+                            </div>
+                        </div>
+
+                        <!-- Driver Specific Fields -->
+                        <div id="edit-driver-fields" class="role-specific-edit-fields" style="display:none;">
+                            <div class="mb-3">
+                                <label for="editVehicleType" class="form-label">Vehicle Type</label>
+                                <input type="text" class="form-control" id="editVehicleType" name="driver_profile.vehicle_type">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editLicenseNumber" class="form-label">License Number</label>
+                                <input type="text" class="form-control" id="editLicenseNumber" name="driver_profile.license_number">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="changePasswordModalLabel">Change Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="change-password-form">
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="currentPassword" name="current_password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="newPassword" name="new_password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPasswordConfirm" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="newPasswordConfirm" name="new_password_confirm" required>
+                        </div>
+                        <button type="submit" class="btn btn-warning">Change Password</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+        window.location.href = "{% url 'webapp:login' %}"; // Redirect if not logged in
+        return;
+    }
+
+    const profileFullName = document.getElementById('profile-full-name');
+    const profileEmail = document.getElementById('profile-email');
+    const profilePhone = document.getElementById('profile-phone');
+    const profileRole = document.getElementById('profile-role');
+    const profileDateJoined = document.getElementById('profile-date-joined');
+    const profileSpecificContent = document.getElementById('profile-specific-content');
+    
+    const editProfileForm = document.getElementById('edit-profile-form');
+    const changePasswordForm = document.getElementById('change-password-form');
+
+    let currentUserData = null;
+
+    function fetchAPI(endpoint, method = 'GET', body = null) {
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+        };
+        const config = { method: method, headers: headers };
+        if (body) config.body = JSON.stringify(body);
+        return fetch(endpoint, config).then(response => {
+            if (!response.ok) return response.json().then(err => { throw err; });
+            return response.status === 204 ? null : response.json();
+        });
+    }
+
+    function populateProfileData(data) {
+        currentUserData = data;
+        profileFullName.textContent = data.full_name || 'N/A';
+        profileEmail.textContent = data.email || 'N/A';
+        profilePhone.textContent = data.phone || 'N/A';
+        profileRole.textContent = data.role || 'N/A';
+        profileDateJoined.textContent = data.date_joined ? new Date(data.date_joined).toLocaleDateString() : 'N/A';
+
+        let specificHTML = '';
+        document.querySelectorAll('.role-specific-edit-fields').forEach(el => el.style.display = 'none');
+
+        if (data.role === 'CUSTOMER' && data.customer_profile) {
+            specificHTML = `
+                <p><strong>Default Address:</strong> ${data.customer_profile.default_address || 'Not set'}</p>
+                <p><strong>Default Latitude:</strong> ${data.customer_profile.default_location_lat || 'Not set'}</p>
+                <p><strong>Default Longitude:</strong> ${data.customer_profile.default_location_lng || 'Not set'}</p>
+            `;
+            document.getElementById('edit-customer-fields').style.display = 'block';
+            document.getElementById('editDefaultAddress').value = data.customer_profile.default_address || '';
+            document.getElementById('editDefaultLocationLat').value = data.customer_profile.default_location_lat || '';
+            document.getElementById('editDefaultLocationLng').value = data.customer_profile.default_location_lng || '';
+        } else if (data.role === 'RESTAURANT' && data.restaurant_profile) {
+            specificHTML = `
+                <p><strong>Business Name:</strong> ${data.restaurant_profile.business_name || 'Not set'}</p>
+                <p><strong>Business Address:</strong> ${data.restaurant_profile.business_address || 'Not set'}</p>
+                <p><strong>Registration Number:</strong> ${data.restaurant_profile.business_registration_number || 'Not set'}</p>
+            `;
+            document.getElementById('edit-restaurant-fields').style.display = 'block';
+            document.getElementById('editBusinessName').value = data.restaurant_profile.business_name || '';
+            document.getElementById('editBusinessAddress').value = data.restaurant_profile.business_address || '';
+            document.getElementById('editBusinessRegNumber').value = data.restaurant_profile.business_registration_number || '';
+        } else if (data.role === 'DRIVER' && data.driver_profile) {
+            specificHTML = `
+                <p><strong>Vehicle Type:</strong> ${data.driver_profile.vehicle_type || 'Not set'}</p>
+                <p><strong>License Number:</strong> ${data.driver_profile.license_number || 'Not set'}</p>
+            `;
+            document.getElementById('edit-driver-fields').style.display = 'block';
+            document.getElementById('editVehicleType').value = data.driver_profile.vehicle_type || '';
+            document.getElementById('editLicenseNumber').value = data.driver_profile.license_number || '';
+        }
+        profileSpecificContent.innerHTML = specificHTML || '<p>No additional profile details available.</p>';
+        
+        // Populate common edit form fields
+        document.getElementById('editFullName').value = data.full_name || '';
+        document.getElementById('editPhone').value = data.phone || '';
+    }
+
+    function loadProfile() {
+        fetchAPI('/api/users/profile/')
+            .then(populateProfileData)
+            .catch(error => {
+                console.error('Error fetching profile:', error);
+                profileSpecificContent.innerHTML = '<p class="text-danger">Could not load profile data.</p>';
+                 if (error.detail === "Authentication credentials were not provided." || error.code === "token_not_valid"){
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
+                    window.location.href = "{% url 'webapp:login' %}?next={% url 'webapp:profile' %}";
+                }
+            });
+    }
+
+    editProfileForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        const formData = new FormData(editProfileForm);
+        const patchData = {
+            full_name: formData.get('full_name'),
+            phone: formData.get('phone')
+        };
+
+        if (currentUserData.role === 'CUSTOMER') {
+            patchData.customer_profile = {
+                default_address: formData.get('customer_profile.default_address'),
+                default_location_lat: formData.get('customer_profile.default_location_lat') || null,
+                default_location_lng: formData.get('customer_profile.default_location_lng') || null
+            };
+        } else if (currentUserData.role === 'RESTAURANT') {
+            patchData.restaurant_profile = {
+                business_name: formData.get('restaurant_profile.business_name'),
+                business_address: formData.get('restaurant_profile.business_address'),
+                business_registration_number: formData.get('restaurant_profile.business_registration_number')
+            };
+        } else if (currentUserData.role === 'DRIVER') {
+            patchData.driver_profile = {
+                vehicle_type: formData.get('driver_profile.vehicle_type'),
+                license_number: formData.get('driver_profile.license_number')
+            };
+        }
+        
+        // Filter out null or empty string values for lat/lng to avoid sending them if not set
+        if (patchData.customer_profile) {
+            if (patchData.customer_profile.default_location_lat === "") patchData.customer_profile.default_location_lat = null;
+            if (patchData.customer_profile.default_location_lng === "") patchData.customer_profile.default_location_lng = null;
+        }
+
+
+        fetchAPI('/api/users/profile/', 'PATCH', patchData)
+            .then(updatedData => {
+                alert('Profile updated successfully!');
+                populateProfileData(updatedData); // Refresh displayed data
+                var editModal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+                editModal.hide();
+            })
+            .catch(error => {
+                console.error('Error updating profile:', error);
+                let errorMessage = 'Failed to update profile.\n';
+                 if (typeof error === 'object' && error !== null) {
+                    for (const key in error) {
+                        if (Array.isArray(error[key])) {
+                             errorMessage += `${key}: ${error[key].join(', ')}\n`;
+                        } else if (typeof error[key] === 'object') {
+                            for (const subKey in error[key]) {
+                                errorMessage += `${key}.${subKey}: ${error[key][subKey].join(', ')}\n`;
+                            }
+                        } else {
+                            errorMessage += `${key}: ${error[key]}\n`;
+                        }
+                    }
+                } else {
+                    errorMessage += error;
+                }
+                alert(errorMessage.trim());
+            });
+    });
+
+    changePasswordForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        const formData = new FormData(changePasswordForm);
+        const data = {
+            current_password: formData.get('current_password'),
+            new_password: formData.get('new_password'),
+            new_password_confirm: formData.get('new_password_confirm')
+        };
+
+        fetchAPI('/api/users/change-password/', 'POST', data)
+            .then(() => {
+                alert('Password changed successfully!');
+                changePasswordForm.reset();
+                var passwordModal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
+                passwordModal.hide();
+            })
+            .catch(error => {
+                console.error('Error changing password:', error);
+                let errorMessage = 'Failed to change password.\n';
+                 if (typeof error === 'object' && error !== null) {
+                    for (const key in error) {
+                         if (Array.isArray(error[key])) {
+                             errorMessage += `${key}: ${error[key].join(', ')}\n`;
+                        } else {
+                            errorMessage += `${key}: ${error[key]}\n`;
+                        }
+                    }
+                } else {
+                    errorMessage += error;
+                }
+                alert(errorMessage.trim());
+            });
+    });
+
+    loadProfile();
+});
+</script>
+{% endblock %}

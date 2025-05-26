@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}<span id="restaurant-name-title">Restaurant</span> - Menu{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div id="restaurant-details-container" class="mb-4">
+        <!-- Restaurant details will be loaded here -->
+        <h2 id="restaurant-name">Loading restaurant...</h2>
+        <p id="restaurant-address"></p>
+        <p id="restaurant-description"></p>
+        <p><strong>Status:</strong> <span id="restaurant-status"></span></p>
+        <p><strong>Rating:</strong> <span id="restaurant-rating"></span></p>
+    </div>
+
+    <hr>
+
+    <h3>Menu</h3>
+    <div id="menu-container">
+        <!-- Menu categories and items will be loaded here -->
+        <p id="loading-menu">Loading menu...</p>
+    </div>
+    
+    <div class="mt-4">
+        <h4>Your Order Cart</h4>
+        <div id="cart-items" class="list-group mb-3">
+            <!-- Cart items will be added here -->
+            <p id="empty-cart-message" class="list-group-item">Your cart is empty.</p>
+        </div>
+        <div class="d-flex justify-content-end align-items-center">
+            <h5 class="me-3">Total: $<span id="cart-total">0.00</span></h5>
+            <button id="checkout-btn" class="btn btn-success" disabled>Proceed to Checkout</button>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const restaurantId = "{{ restaurant_id }}"; // Get restaurant ID from Django context
+    const restaurantNameEl = document.getElementById('restaurant-name');
+    const restaurantNameTitleEl = document.getElementById('restaurant-name-title');
+    const restaurantAddressEl = document.getElementById('restaurant-address');
+    const restaurantDescriptionEl = document.getElementById('restaurant-description');
+    const restaurantStatusEl = document.getElementById('restaurant-status');
+    const restaurantRatingEl = document.getElementById('restaurant-rating');
+    const menuContainer = document.getElementById('menu-container');
+    const loadingMenuMsg = document.getElementById('loading-menu');
+    const accessToken = localStorage.getItem('accessToken');
+
+    const cartItemsEl = document.getElementById('cart-items');
+    const cartTotalEl = document.getElementById('cart-total');
+    const emptyCartMessageEl = document.getElementById('empty-cart-message');
+    const checkoutBtn = document.getElementById('checkout-btn');
+    let cart = [];
+
+    function fetchAPI(url) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (accessToken) {
+            headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+        return fetch(url, { headers: headers })
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
+            });
+    }
+
+    function renderRestaurantDetails(data) {
+        restaurantNameEl.textContent = data.name;
+        restaurantNameTitleEl.textContent = data.name;
+        restaurantAddressEl.textContent = data.address;
+        restaurantDescriptionEl.textContent = data.description || 'No description available.';
+        restaurantStatusEl.innerHTML = data.is_open ? '<span class="text-success">Open</span>' : '<span class="text-danger">Closed</span>';
+        restaurantRatingEl.textContent = data.average_rating ? `${data.average_rating} / 5` : 'Not rated yet';
+    }
+
+    function renderMenu(menuData) {
+        loadingMenuMsg.style.display = 'none';
+        if (menuData && menuData.length > 0) {
+            menuData.forEach(category => {
+                let itemsHTML = '';
+                if (category.items && category.items.length > 0) {
+                    category.items.forEach(item => {
+                        if(item.is_available) { // Only show available items
+                            itemsHTML += `
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5>${item.name}</h5>
+                                        <p><small>${item.description || ''}</small></p>
+                                        <p><strong>Price: $${parseFloat(item.price).toFixed(2)}</strong></p>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-success add-to-cart-btn" 
+                                            data-item-id="${item.id}" 
+                                            data-item-name="${item.name}" 
+                                            data-item-price="${item.price}">Add to Cart</button>
+                                </div>
+                            `;
+                        }
+                    });
+                } else {
+                    itemsHTML = '<p class="list-group-item">No items in this category.</p>';
+                }
+
+                const categoryHTML = `
+                    <div class="mb-4">
+                        <h4>${category.name}</h4>
+                        <div class="list-group">
+                            ${itemsHTML}
+                        </div>
+                    </div>
+                `;
+                menuContainer.insertAdjacentHTML('beforeend', categoryHTML);
+            });
+            addEventListenersToCartButtons();
+        } else {
+            menuContainer.innerHTML = '<p>No menu items found for this restaurant.</p>';
+        }
+    }
+    
+    function updateCartDisplay() {
+        cartItemsEl.innerHTML = ''; // Clear current cart items
+        let total = 0;
+        if (cart.length === 0) {
+            emptyCartMessageEl.style.display = 'block';
+            checkoutBtn.disabled = true;
+        } else {
+            emptyCartMessageEl.style.display = 'none';
+            cart.forEach((cartItem, index) => {
+                const itemHTML = `
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            ${cartItem.name} (x${cartItem.quantity})
+                        </div>
+                        <div>
+                            <span>$${(parseFloat(cartItem.price) * cartItem.quantity).toFixed(2)}</span>
+                            <button class="btn btn-sm btn-danger remove-from-cart-btn ms-2" data-index="${index}">Remove</button>
+                        </div>
+                    </div>
+                `;
+                cartItemsEl.insertAdjacentHTML('beforeend', itemHTML);
+                total += parseFloat(cartItem.price) * cartItem.quantity;
+            });
+            checkoutBtn.disabled = false;
+        }
+        cartTotalEl.textContent = total.toFixed(2);
+        addEventListenersToRemoveButtons();
+    }
+
+    function addToCart(itemId, itemName, itemPrice) {
+        const existingItem = cart.find(item => item.id === itemId);
+        if (existingItem) {
+            existingItem.quantity++;
+        } else {
+            cart.push({ id: itemId, name: itemName, price: itemPrice, quantity: 1 });
+        }
+        updateCartDisplay();
+    }
+
+    function removeFromCart(index) {
+        const item = cart[index];
+        if (item.quantity > 1) {
+            item.quantity--;
+        } else {
+            cart.splice(index, 1);
+        }
+        updateCartDisplay();
+    }
+    
+    function addEventListenersToCartButtons() {
+        document.querySelectorAll('.add-to-cart-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const itemId = this.dataset.itemId;
+                const itemName = this.dataset.itemName;
+                const itemPrice = this.dataset.itemPrice;
+                addToCart(itemId, itemName, itemPrice);
+            });
+        });
+    }
+    
+    function addEventListenersToRemoveButtons() {
+        document.querySelectorAll('.remove-from-cart-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const index = parseInt(this.dataset.index);
+                removeFromCart(index);
+            });
+        });
+    }
+
+    checkoutBtn.addEventListener('click', function() {
+        if (!accessToken) {
+            alert("Please login to proceed to checkout.");
+            window.location.href = "{% url 'login' %}?next=" + window.location.pathname;
+            return;
+        }
+        if (cart.length === 0) {
+            alert("Your cart is empty.");
+            return;
+        }
+        // Prepare order data
+        const orderData = {
+            restaurant: restaurantId,
+            order_items: cart.map(item => ({ menu_item: item.id, quantity: item.quantity })),
+            // delivery_address, payment_method etc. would be collected in a next step
+            // For now, let's assume some defaults or a simplified process
+            delivery_address: "User's default or entered address", // Placeholder
+            notes: "Test order from web UI" // Placeholder
+        };
+
+        fetch('/api/orders/', { // Your DRF create order endpoint
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify(orderData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert(`Order placed successfully! Order ID: ${data.id.substring(0,8)}...`);
+            cart = []; // Clear cart
+            updateCartDisplay();
+            // Potentially redirect to an order confirmation page:
+            // window.location.href = `/orders/${data.id}/`; 
+        })
+        .catch(error => {
+            console.error('Error placing order:', error);
+            let errorMessage = "Could not place order.\n";
+            if (typeof error === 'object' && error !== null) {
+                for (const key in error) {
+                    if (Array.isArray(error[key])) {
+                         errorMessage += `${key}: ${error[key].join(', ')}\n`;
+                    } else if (typeof error[key] === 'object') { // Nested errors (like order_items)
+                        for (const subKey in error[key]) {
+                             if (Array.isArray(error[key][subKey])) { // e.g. order_items: [{menu_item: ["error msg"]}]
+                                error[key][subKey].forEach(subItemError => {
+                                     for(const fieldError in subItemError){
+                                        errorMessage += `${key}.${subKey}.${fieldError}: ${subItemError[fieldError].join(', ')}\n`;
+                                     }
+                                });
+                             } else {
+                                errorMessage += `${key}.${subKey}: ${error[key][subKey]}\n`;
+                             }
+                        }
+                    }
+                     else {
+                        errorMessage += `${key}: ${error[key]}\n`;
+                    }
+                }
+            } else {
+                errorMessage += error;
+            }
+            alert(errorMessage.trim());
+        });
+    });
+
+
+    // Initial data load
+    fetchAPI(`/api/restaurants/${restaurantId}/`)
+        .then(renderRestaurantDetails)
+        .catch(error => {
+            console.error('Error fetching restaurant details:', error);
+            document.getElementById('restaurant-details-container').innerHTML = '<p class="text-danger">Could not load restaurant details.</p>';
+        });
+
+    fetchAPI(`/api/restaurants/${restaurantId}/menu/`)
+        .then(renderMenu)
+        .catch(error => {
+            console.error('Error fetching menu:', error);
+            menuContainer.innerHTML = '<p class="text-danger">Could not load menu.</p>';
+        });
+    
+    updateCartDisplay(); // Initialize cart display
+});
+</script>
+{% endblock %}
