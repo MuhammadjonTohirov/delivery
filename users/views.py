@@ -3,6 +3,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth import get_user_model
+
+from django.contrib.auth import authenticate, login
+from django.shortcuts import render, redirect
+from django.contrib import messages
+
 from .models import CustomerProfile, DriverProfile, RestaurantProfile
 from .serializers import (
     UserSerializer, 
@@ -30,7 +35,13 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         responses={200: {"example": {"access": "token", "refresh": "token"}}}
     )
     def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+        result = super().post(request, *args, **kwargs)
+        email = request.data.get('email')
+        password = request.data.get('password')
+        user = authenticate(request, username=email, password=password)
+        if user is not None:
+            login(request, user)
+        return  result
 
 
 class LogoutView(APIView):

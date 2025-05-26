@@ -17,7 +17,8 @@ from .views import (
     MenuItemEditView,
     RestaurantOrderListView,
     DriverTaskListView,
-    DriverEarningsView
+    DriverEarningsView,
+    CustomerOrderListView
 )
 
 app_name = 'webapp'
@@ -44,4 +45,5 @@ urlpatterns = [
     path('my-restaurant/orders/', RestaurantOrderListView.as_view(), name='restaurant_orders'),
     path('driver/tasks/', DriverTaskListView.as_view(), name='driver_task_list'),
     path('driver/earnings/', DriverEarningsView.as_view(), name='driver_earnings_report'),
+    path('orders/my/', CustomerOrderListView.as_view(), name='customer_order_list'),
 ]

@@ -21,6 +21,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         # self.username_field should be 'email' due to CustomUser.USERNAME_FIELD
+        
         email_attr_key = self.username_field
         input_email = attrs.get(email_attr_key)
 
