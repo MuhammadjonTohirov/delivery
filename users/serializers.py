@@ -97,13 +97,34 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         
         # Create appropriate profile based on role
         if user.role == 'CUSTOMER' and customer_profile_data is not None:
-            CustomerProfile.objects.create(user=user, **customer_profile_data)
+            self.create_customer_profile(user, customer_profile_data)
         elif user.role == 'DRIVER' and driver_profile_data is not None:
-            DriverProfile.objects.create(user=user, **driver_profile_data)
+            self.create_driver_profile(user, driver_profile_data)
         elif user.role == 'RESTAURANT' and restaurant_profile_data is not None:
-            RestaurantProfile.objects.create(user=user, **restaurant_profile_data)
+            self.create_restaurant_profile(user, restaurant_profile_data)
         
         return user
+    
+    def create_customer_profile(self, user, customer_profile_data):
+        if not hasattr(user, 'customer_profile'):
+            CustomerProfile.objects.create(user=user, **customer_profile_data)
+        else:
+            user.customer_profile.__dict__.update(**customer_profile_data)
+            user.customer_profile.save()
+            
+    def create_driver_profile(self, user, driver_profile_data):
+        if not hasattr(user, 'driver_profile'):
+            DriverProfile.objects.create(user=user, **driver_profile_data)
+        else:
+            user.driver_profile.__dict__.update(**driver_profile_data)
+            user.driver_profile.save()
+            
+    def create_restaurant_profile(self, user, restaurant_profile_data):
+        if not hasattr(user, 'restaurant_profile'):
+            RestaurantProfile.objects.create(user=user, **restaurant_profile_data)
+        else:
+            user.restaurant_profile.__dict__.update(**restaurant_profile_data)
+            user.restaurant_profile.save()
 
 
 class PasswordChangeSerializer(serializers.Serializer):
