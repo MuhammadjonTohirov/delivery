@@ -19,6 +19,32 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         return token
 
+    def validate(self, attrs):
+        # self.username_field should be 'email' due to CustomUser.USERNAME_FIELD
+        email_attr_key = self.username_field
+        input_email = attrs.get(email_attr_key)
+
+        if input_email:
+            try:
+                # Find the user via case-insensitive email lookup
+                # User is already defined as get_user_model() at the top of this file
+                user_obj = User.objects.get(email__iexact=input_email)
+                # Update attrs with the correctly cased email from the database
+                attrs[email_attr_key] = user_obj.email
+            except User.DoesNotExist:
+                # If no user is found even with a case-insensitive search,
+                # the subsequent call to super().validate() will fail and raise
+                # an AuthenticationFailed exception, which is the desired behavior.
+                pass
+
+        # Call the original validation logic from DRF Simple JWT.
+        # This will perform the actual authentication using the (potentially corrected) email.
+        data = super().validate(attrs)
+
+        # The get_token method (defined above) will be called by the parent class's logic
+        # if authentication is successful, to add custom claims to the token.
+        return data
+
 
 class CustomerProfileSerializer(serializers.ModelSerializer):
     class Meta:

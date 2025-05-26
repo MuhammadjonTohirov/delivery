@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Customer Dashboard - Delivery Platform{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Welcome, {{ user.full_name }}! (Customer Dashboard)</h1>
+    <p>This is your personal dashboard. Here you can manage your orders, view your profile, and more.</p>
+    
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">My Orders</h5>
+                    <p class="card-text">View your past and current orders.</p>
+                    <a href="#" class="btn btn-primary">View Orders</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">My Profile</h5>
+                    <p class="card-text">Update your personal information and preferences.</p>
+                    <a href="{% url 'webapp:profile' %}" class="btn btn-secondary">Edit Profile</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-5">
+        <h3>Browse Restaurants</h3>
+        <p>Explore nearby restaurants and place a new order.</p>
+        <!-- Restaurant listing will go here -->
+        <a href="{% url 'webapp:restaurant_list' %}" class="btn btn-success">Find Restaurants</a>
+    </div>
+</div>
+{% endblock %}

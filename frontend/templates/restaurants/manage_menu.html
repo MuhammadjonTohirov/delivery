@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Menu - Delivery Platform{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Manage Menu</h2>
+        <div>
+            <a href="{% url 'webapp:menu_category_create' %}" class="btn btn-success">Add New Category</a>
+        </div>
+    </div>
+
+    <div id="menu-management-container">
+        <p id="loading-menu-data">Loading menu data...</p>
+        <!-- Categories and items will be loaded here by JavaScript -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const menuManagementContainer = document.getElementById('menu-management-container');
+    const loadingMenuMsg = document.getElementById('loading-menu-data');
+    const accessToken = localStorage.getItem('accessToken');
+    let myRestaurantId = null;
+
+    if (!accessToken) {
+        window.location.href = "{% url 'webapp:login' %}?next=" + window.location.pathname;
+        return;
+    }
+
+    function fetchAPI(endpoint, method = 'GET', body = null) {
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+        };
+        const config = { method: method, headers: headers };
+        if (body) config.body = JSON.stringify(body);
+        
+        return fetch(endpoint, config).then(response => {
+            if (response.status === 204) return null; // Handle 204 No Content for DELETE
+            if (!response.ok) return response.json().then(err => { throw err; });
+            return response.json();
+        });
+    }
+
+    function renderMenuManagement(categories) {
+        loadingMenuMsg.style.display = 'none';
+        menuManagementContainer.innerHTML = ''; // Clear previous content
+
+        if (categories && categories.length > 0) {
+            categories.forEach(category => {
+                let itemsHTML = '<ul class="list-group list-group-flush">';
+                if (category.items && category.items.length > 0) {
+                    category.items.forEach(item => {
+                        itemsHTML += `
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${item.name}</strong> - $${parseFloat(item.price).toFixed(2)}
+                                    <br><small class="text-muted">${item.description || 'No description'}</small>
+                                    <br><small>Available: ${item.is_available ? 'Yes' : 'No'}, Featured: ${item.is_featured ? 'Yes' : 'No'}</small>
+                                </div>
+                                <div>
+                                    <a href="/my-restaurant/menu/items/${item.id}/edit/" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                    <button class="btn btn-sm btn-outline-danger delete-item-btn" data-item-id="${item.id}">Delete</button>
+                                </div>
+                            </li>
+                        `;
+                    });
+                } else {
+                    itemsHTML += '<li class="list-group-item">No items in this category.</li>';
+                }
+                itemsHTML += '</ul>';
+
+                const categoryCardHTML = `
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5>${category.name} <small class="text-muted">(Order: ${category.order})</small></h5>
+                            <div>
+                                <a href="/my-restaurant/menu/categories/${category.id}/add-item/" class="btn btn-sm btn-success me-2">Add Item to this Category</a>
+                                <a href="/my-restaurant/menu/categories/${category.id}/edit/" class="btn btn-sm btn-primary me-2">Edit Category</a>
+                                <button class="btn btn-sm btn-danger delete-category-btn" data-category-id="${category.id}">Delete Category</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            ${category.description ? `<p class="card-text">${category.description}</p>` : ''}
+                            ${itemsHTML}
+                        </div>
+                    </div>
+                `;
+                menuManagementContainer.insertAdjacentHTML('beforeend', categoryCardHTML);
+            });
+            addEventListenersToDeleteButtons();
+        } else {
+            menuManagementContainer.innerHTML = '<p>No menu categories found. Start by adding a new category.</p>';
+        }
+    }
+    
+    function addEventListenersToDeleteButtons() {
+        document.querySelectorAll('.delete-category-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const categoryId = this.dataset.categoryId;
+                if (confirm('Are you sure you want to delete this category and all its items?')) {
+                    fetchAPI(`/api/categories/${categoryId}/`, 'DELETE')
+                        .then(() => {
+                            alert('Category deleted successfully.');
+                            loadMenuData(); // Refresh list
+                        })
+                        .catch(error => {
+                            console.error('Error deleting category:', error);
+                            alert('Failed to delete category. ' + (error.detail || JSON.stringify(error)));
+                        });
+                }
+            });
+        });
+
+        document.querySelectorAll('.delete-item-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const itemId = this.dataset.itemId;
+                if (confirm('Are you sure you want to delete this menu item?')) {
+                    fetchAPI(`/api/menu-items/${itemId}/`, 'DELETE')
+                        .then(() => {
+                            alert('Menu item deleted successfully.');
+                            loadMenuData(); // Refresh list
+                        })
+                        .catch(error => {
+                            console.error('Error deleting menu item:', error);
+                            alert('Failed to delete menu item. ' + (error.detail || JSON.stringify(error)));
+                        });
+                }
+            });
+        });
+    }
+
+
+    function loadMenuData() {
+        loadingMenuMsg.style.display = 'block';
+        // First, get the restaurant ID for the current owner
+        fetchAPI('/api/restaurants/mine/')
+            .then(restaurantData => {
+                if (restaurantData && restaurantData.id) {
+                    myRestaurantId = restaurantData.id;
+                    // Then fetch categories for that restaurant
+                    // The MenuCategoryViewSet list endpoint should be filterable by restaurant ID.
+                    // e.g., /api/categories/?restaurant=<restaurant_id>
+                    return fetchAPI(`/api/categories/?restaurant=${myRestaurantId}`);
+                } else {
+                    throw new Error("Could not identify your restaurant.");
+                }
+            })
+            .then(categoriesData => {
+                // The MenuCategorySerializer should include its items.
+                // If not, you'd need to make additional calls for items per category.
+                // Assuming items are nested in category data (as per MenuCategorySerializer with items = MenuItemSerializer(many=True))
+                renderMenuManagement(categoriesData.results || categoriesData); // API might return paginated or direct list
+            })
+            .catch(error => {
+                console.error('Error loading menu data:', error);
+                loadingMenuMsg.style.display = 'none';
+                menuManagementContainer.innerHTML = `<p class="text-danger">Could not load menu data. ${error.detail || error.message || ''}</p>`;
+            });
+    }
+
+    loadMenuData();
+});
+</script>
+{% endblock %}
