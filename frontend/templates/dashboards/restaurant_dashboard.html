@@ -119,8 +119,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    fetchAPI('/api/restaurants/mine/')
+    fetchAPI('/api/restaurants/list/mine/')
         .then(restaurantData => {
+            console.log(restaurantData);
             if (restaurantData && restaurantData.id) {
                 myRestaurantId = restaurantData.id;
                 return fetchAPI(`/api/restaurants/${myRestaurantId}/statistics/`);
@@ -133,9 +134,9 @@ document.addEventListener('DOMContentLoaded', function() {
             renderOverviewChart(statsData);
             renderOrderStatusChart(statsData.orders_by_status);
         })
-        .catch(error => {
+        .catch(error => {   
             console.error('Error fetching restaurant statistics:', error);
-            statsLoadingMsg.innerHTML = `<p class="text-danger">Could not load statistics. ${error.detail || error.message || ''}</p>`;
+            statsLoadingMsg.innerHTML = `<p class="text-danger">Could not load statistics.</p>`;
         });
 
     function renderOverviewChart(statsData) {

@@ -75,6 +75,26 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'phone', 'full_name', 'role', 'is_active', 
                   'date_joined', 'customer_profile', 'driver_profile', 'restaurant_profile']
         read_only_fields = ['id', 'date_joined', 'is_active']
+        
+    def update(self, instance, validated_data):
+        # Update the instance with the validated data
+        instance.email = validated_data.get('email', instance.email)
+        instance.phone = validated_data.get('phone', instance.phone)
+        instance.full_name = validated_data.get('full_name', instance.full_name)
+
+        # Update the nested fields (e.g. customer_profile, driver_profile, restaurant_profile)
+        if 'customer_profile' in validated_data:
+            instance.customer_profile.__dict__.update(validated_data['customer_profile'])
+            instance.customer_profile.save()
+        if 'driver_profile' in validated_data:
+            instance.driver_profile.__dict__.update(validated_data['driver_profile'])
+            instance.driver_profile.save()
+        if 'restaurant_profile' in validated_data:
+            instance.restaurant_profile.__dict__.update(validated_data['restaurant_profile'])
+            instance.restaurant_profile.save()
+
+        instance.save()
+        return instance
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

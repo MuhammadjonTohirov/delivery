@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
         paginationContainer.innerHTML = '';
 
 
-        let url = `/api/restaurants/?page=${page}`;
+        let url = `/api/restaurants/list/?page=${page}`;
         if (search) {
             url += `&search=${encodeURIComponent(search)}`;
         }

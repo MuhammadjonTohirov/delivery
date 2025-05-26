@@ -66,7 +66,7 @@ class RestaurantViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [permissions.AllowAny]
         return [permission() for permission in permission_classes]
-    
+
     @extend_schema(
         summary="Get restaurant menu",
         description="Get the full menu (categories and items) for a specific restaurant"
@@ -96,13 +96,14 @@ class RestaurantViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsRestaurantOwner])
     def mine(self, request):
         try:
-            # The Restaurant model has a OneToOneField to User named 'user'
-            # So, request.user.restaurant should give the related Restaurant instance.
             restaurant = request.user.restaurant
             serializer = self.get_serializer(restaurant)
             return Response(serializer.data)
-        except Restaurant.DoesNotExist: # This might be AttributeError if 'restaurant' related_name isn't set up or user has no restaurant
-            return Response({"detail": "Restaurant not found for this user."}, status=status.HTTP_404_NOT_FOUND)
+        except Restaurant.DoesNotExist:
+            return Response(
+                {"detail": "You do not have an associated restaurant."},
+                status=status.HTTP_404_NOT_FOUND
+            )
         except AttributeError: # If request.user doesn't have a 'restaurant' attribute
              return Response({"detail": "No restaurant associated with this user account."}, status=status.HTTP_404_NOT_FOUND)
 
