@@ -3,52 +3,71 @@
 {% block title %}Driver Dashboard - Delivery Platform{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1>Welcome, {{ user.full_name }}! (Driver Dashboard)</h1>
-    <p>Manage your availability, view assigned tasks, and track your earnings.</p>
+<div class="container py-4">
 
-    <div class="row mt-4">
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">My Availability</h5>
-                    <p class="card-text">Set your status to online/offline.</p>
-                    <!-- Availability toggle will go here -->
-                    <button class="btn btn-success" id="go-online-btn">Go Online</button>
-                    <button class="btn btn-danger" id="go-offline-btn">Go Offline</button>
-                    <p id="availability-status" class="mt-2">Current Status: <span class="fw-bold">Unknown</span></p>
-                </div>
-            </div>
+    <!-- Header Section -->
+    <div class="p-5 mb-4 bg-light rounded-3 shadow-sm">
+        <div class="container-fluid py-3"> <!-- Adjusted py-5 to py-3 for a slightly less tall header -->
+            <h1 class="display-5 fw-bold">Driver Dashboard</h1>
+            <p class="col-md-10 fs-4">Welcome, {{ user.full_name|default:'Driver' }}! Manage your availability, view tasks, and track your earnings.</p>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Active Task</h5>
-                    <p class="card-text">View details of your current delivery task.</p>
-                    <!-- Active task details will be loaded here -->
-                    <div id="active-task-details">
-                        <p>No active task.</p>
+    </div>
+
+    <!-- Main Action Cards -->
+    <div class="row align-items-stretch mb-4">
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column p-4">
+                    <h5 class="card-title h3 text-center">My Availability</h5>
+                    <p class="card-text fs-5 text-center flex-grow-1">Set your status to online or offline to receive new task notifications.</p>
+                    <div class="mt-auto">
+                        <div class="d-grid gap-2 mb-2">
+                            <button class="btn btn-success py-2 fs-5" id="go-online-btn">Go Online</button>
+                            <button class="btn btn-danger py-2 fs-5" id="go-offline-btn">Go Offline</button>
+                        </div>
+                        <p id="availability-status" class="mt-3 text-center fs-5">Current Status: <span class="fw-bold">Unknown</span></p>
+                        <div id="availability-error" class="text-danger mt-1 text-center" style="min-height: 1.5em;"></div>
                     </div>
-                    <a href="{% url 'webapp:driver_task_list' %}" class="btn btn-primary mt-2" id="view-tasks-btn">View All Tasks</a>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">My Earnings</h5>
-                    <p class="card-text">Track your earnings from deliveries.</p>
-                    <a href="{% url 'webapp:driver_earnings_report' %}" class="btn btn-info">View Earnings Report</a>
-                     <a href="{% url 'webapp:profile' %}" class="btn btn-secondary mt-2">Edit Profile</a>
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column p-4">
+                    <h5 class="card-title h3 text-center">Active Task</h5>
+                    <div id="active-task-details" class="text-center fs-5 flex-grow-1 d-flex flex-column justify-content-center">
+                        <p>No active task.</p> <!-- This will be replaced by JS -->
+                    </div>
+                    <a href="{% url 'webapp:driver_task_list' %}" class="btn btn-primary mt-auto py-2 fs-5" id="view-tasks-btn">View All My Tasks</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column p-4">
+                    <h5 class="card-title h3 text-center">My Earnings & Profile</h5>
+                    <p class="card-text fs-5 text-center flex-grow-1">Track your earnings from completed deliveries and manage your profile.</p>
+                    <div class="mt-auto d-grid gap-2">
+                        <a href="{% url 'webapp:driver_earnings_report' %}" class="btn btn-info py-2 fs-5">View Earnings Report</a>
+                        <a href="{% url 'webapp:profile' %}" class="btn btn-secondary py-2 fs-5">Edit My Profile</a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Available Tasks Section -->
     <div class="mt-5">
-        <h3>Available Tasks</h3>
-        <!-- List of tasks available for pickup could go here, or new task notifications -->
-        <p>Listening for new tasks...</p>
+        <h2 class="mb-3 text-center">Available Tasks</h2>
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h5 class="card-title text-center h4">New Task Notifications</h5>
+                <div id="available-tasks-list" class="mt-3">
+                    <p class="text-center fs-5 text-muted"><em>Listening for new tasks...</em></p>
+                    <!-- Placeholder for where tasks might be listed, e.g., via WebSockets or polling -->
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -59,6 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const goOfflineBtn = document.getElementById('go-offline-btn');
     const availabilityStatusEl = document.getElementById('availability-status').querySelector('span');
     const activeTaskDetailsEl = document.getElementById('active-task-details');
+    const availabilityErrorEl = document.getElementById('availability-error'); // Get the error element
     const accessToken = localStorage.getItem('accessToken');
 
     function fetchAPI(endpoint, method = 'GET', body = null) {
@@ -108,14 +128,26 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchAPI('/api/drivers/tasks/active/')
             .then(data => {
                 if (data && data.id) {
+                    let buttonsHtml = '';
+                    if (data.status === 'PENDING') {
+                        buttonsHtml += `<button class="btn btn-sm btn-success m-1" data-task-id="${data.id}" data-action="accept">Accept</button>`;
+                        buttonsHtml += `<button class="btn btn-sm btn-danger m-1" data-task-id="${data.id}" data-action="reject">Reject</button>`;
+                    } else if (data.status === 'ACCEPTED') {
+                        buttonsHtml += `<button class="btn btn-sm btn-warning m-1" data-task-id="${data.id}" data-action="picked_up">Picked Up</button>`;
+                    } else if (data.status === 'PICKED_UP') {
+                        buttonsHtml += `<button class="btn btn-sm btn-info m-1" data-task-id="${data.id}" data-action="delivered">Delivered</button>`;
+                    }
+
                     activeTaskDetailsEl.innerHTML = `
                         <p><strong>Order ID:</strong> ${data.order_details.id.substring(0,8)}...</p>
-                        <p><strong>Status:</strong> ${data.status}</p>
+                        <p><strong>Status:</strong> <span class="fw-bold">${data.status}</span></p>
                         <p><strong>Restaurant:</strong> ${data.order_details.restaurant_name}</p>
                         <p><strong>Delivery Address:</strong> ${data.order_details.delivery_address}</p>
-                        <a href="#" class="btn btn-sm btn-info">View Details</a>
+                        <div class="mt-2">
+                            <a href="/driver/task/${data.id}/detail/" class="btn btn-sm btn-outline-primary m-1">View Details</a>
+                            ${buttonsHtml}
+                        </div>
                     `;
-                    // Add buttons to accept/reject/pickup/deliver based on status
                 } else {
                     activeTaskDetailsEl.innerHTML = '<p>No active task.</p>';
                 }
@@ -132,29 +164,32 @@ document.addEventListener('DOMContentLoaded', function() {
         getActiveTask(); // Also load active task on page load
 
         goOnlineBtn.addEventListener('click', () => {
+            availabilityErrorEl.textContent = ''; // Clear previous errors
             fetchAPI('/api/drivers/availability/go_online/', 'POST')
                 .then(data => {
                     if (data && data.status) updateAvailabilityStatus(data.status);
                 })
                 .catch(error => {
-                    alert('Could not go online. ' + (error.detail || ''));
+                    availabilityErrorEl.textContent = 'Error going online: ' + (error.detail || error.message || 'Please try again.');
                     console.error('Error going online:', error);
                 });
         });
 
         goOfflineBtn.addEventListener('click', () => {
+            availabilityErrorEl.textContent = ''; // Clear previous errors
             fetchAPI('/api/drivers/availability/go_offline/', 'POST')
                 .then(data => {
                      if (data && data.status) updateAvailabilityStatus(data.status);
                 })
                 .catch(error => {
-                    alert('Could not go offline. ' + (error.detail || ''));
+                    availabilityErrorEl.textContent = 'Error going offline: ' + (error.detail || error.message || 'Please try again.');
                     console.error('Error going offline:', error);
                 });
         });
     } else {
         // Handle case where user is not logged in or token is missing
         availabilityStatusEl.textContent = 'Not Logged In';
+        availabilityErrorEl.textContent = ''; // Ensure no stale errors if logged out
         activeTaskDetailsEl.innerHTML = '<p>Please login to view tasks.</p>';
         goOnlineBtn.disabled = true;
         goOfflineBtn.disabled = true;

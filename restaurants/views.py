@@ -1,11 +1,11 @@
-from rest_framework import viewsets, permissions, status, filters
+from rest_framework import viewsets, permissions, status, filters, serializers
 import uuid # Added for statistics pk conversion
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Restaurant, MenuCategory, MenuItem, RestaurantReview
 from orders.models import Order # Added for statistics
-from django.db.models import Count # Added for statistics
+from django.db.models import Count, Avg # Added for statistics and Avg for annotation
 from .serializers import (
     RestaurantSerializer, 
     RestaurantListSerializer,
@@ -27,9 +27,7 @@ class RestaurantOwnerPermission(permissions.BasePermission):
             return True
         
         # Write permissions only for restaurant owner or admin
-        if hasattr(request.user, 'restaurant'):
-            return obj.user == request.user or request.user.is_staff
-        return request.user.is_staff
+        return obj.user == request.user or request.user.is_staff
 
 
 @extend_schema_view(
@@ -43,11 +41,20 @@ class RestaurantViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Restaurant model.
     """
-    queryset = Restaurant.objects.all()
+    queryset = Restaurant.objects.all() # Base queryset
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['is_open']
     search_fields = ['name', 'address']
     ordering_fields = ['name', 'created_at']
+
+    def get_queryset(self):
+        queryset = super().get_queryset() # Get the original queryset
+        if self.action == 'list':
+            queryset = queryset.annotate(average_rating_annotated=Avg('reviews__rating'))
+        # Optionally, for 'retrieve' action, you could add the annotation too if needed by RestaurantSerializer
+        # if self.action == 'retrieve':
+        //     queryset = queryset.annotate(average_rating_annotated=Avg('reviews__rating'))
+        return queryset
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -171,11 +178,17 @@ class MenuCategoryViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
     
     def perform_create(self, serializer):
-        # Automatically set the restaurant to the user's restaurant
-        if self.request.user.role == 'RESTAURANT' and hasattr(self.request.user, 'restaurant'):
+        if self.request.user.is_staff:
+            # Admin can create for any restaurant specified in payload
+            # Ensure 'restaurant' is in validated_data or handle error
+            if 'restaurant' not in serializer.validated_data:
+                raise serializers.ValidationError({"restaurant": "Restaurant must be specified for admin creation."})
+            serializer.save() # Restaurant is already in validated_data
+        elif self.request.user.role == 'RESTAURANT' and hasattr(self.request.user, 'restaurant'):
             serializer.save(restaurant=self.request.user.restaurant)
         else:
-            serializer.save()
+            # This case should ideally be prevented by viewset permissions
+            raise serializers.ValidationError("You do not have permission to create this resource here.")
 
 
 @extend_schema_view(
@@ -205,11 +218,17 @@ class MenuItemViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
     
     def perform_create(self, serializer):
-        # Automatically set the restaurant to the user's restaurant
-        if self.request.user.role == 'RESTAURANT' and hasattr(self.request.user, 'restaurant'):
+        if self.request.user.is_staff:
+            # Admin can create for any restaurant specified in payload
+            # Ensure 'restaurant' is in validated_data or handle error
+            if 'restaurant' not in serializer.validated_data:
+                raise serializers.ValidationError({"restaurant": "Restaurant must be specified for admin creation."})
+            serializer.save() # Restaurant is already in validated_data
+        elif self.request.user.role == 'RESTAURANT' and hasattr(self.request.user, 'restaurant'):
             serializer.save(restaurant=self.request.user.restaurant)
         else:
-            serializer.save()
+            # This case should ideally be prevented by viewset permissions
+            raise serializers.ValidationError("You do not have permission to create this resource here.")
 
 
 @extend_schema_view(
