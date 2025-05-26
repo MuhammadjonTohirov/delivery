@@ -7,8 +7,11 @@
     <title>{% block title %}Delivery Platform{% endblock %}</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -19,16 +22,63 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if user.is_authenticated %}
+                        {% if user.role == 'CUSTOMER' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'webapp:restaurant_list' %}">Browse Restaurants</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'webapp:customer_order_list' %}">My Orders</a>
+                            </li>
+                        {% elif user.role == 'RESTAURANT' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'webapp:restaurant_dashboard' %}">
+                                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'webapp:restaurant_orders' %}">Orders</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'webapp:menu_management' %}">Menu</a>
+                            </li>
+                        {% elif user.role == 'DRIVER' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'webapp:driver_dashboard' %}">
+                                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'webapp:driver_task_list' %}">Tasks</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'webapp:driver_earnings_report' %}">Earnings</a>
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                </ul>
+                
                 <ul class="navbar-nav ms-auto">
                     {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">Welcome, {{ user.full_name }} ({{ user.get_role_display }})</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'webapp:profile' %}">Profile</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'users:logout' %}" id="logout-link">Logout</a>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user"></i> {{ user.full_name }} ({{ user.get_role_display }})
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                <li><a class="dropdown-item" href="{% url 'webapp:profile' %}">
+                                    <i class="fas fa-user-cog"></i> Profile
+                                </a></li>
+                                {% if user.role == 'RESTAURANT' %}
+                                    <li><a class="dropdown-item" href="{% url 'webapp:manage_restaurant' %}">
+                                        <i class="fas fa-store"></i> Manage Restaurant
+                                    </a></li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#" id="logout-link">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </a></li>
+                            </ul>
                         </li>
                     {% else %}
                         <li class="nav-item">
@@ -43,10 +93,10 @@
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <main>
         {% block content %}
         {% endblock %}
-    </div>
+    </main>
 
     <footer class="bg-dark text-white text-center p-3 mt-5">
         <p>&copy; {% now "Y" %} Delivery Platform. All rights reserved.</p>
@@ -54,9 +104,10 @@
 
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom JS -->
     <script src="{% static 'js/main.js' %}"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

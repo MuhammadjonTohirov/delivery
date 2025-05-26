@@ -107,47 +107,6 @@ class RestaurantViewSet(viewsets.ModelViewSet):
         except AttributeError: # If request.user doesn't have a 'restaurant' attribute
              return Response({"detail": "No restaurant associated with this user account."}, status=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(
-        summary="Get restaurant statistics",
-        description="Get basic statistics for the currently authenticated restaurant owner's restaurant."
-    )
-    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsRestaurantOwner])
-    def statistics(self, request, pk=None):
-        # Ensure the pk matches the user's restaurant if provided,
-        # or ideally, fetch the restaurant via request.user.restaurant
-        try:
-            restaurant_obj = request.user.restaurant # Use a different variable name to avoid conflict with model name
-            if pk and restaurant_obj.id != uuid.UUID(pk): # Check against the fetched restaurant's ID
-                 return Response({"detail": "Access to this restaurant's statistics is forbidden."}, status=status.HTTP_403_FORBIDDEN)
-            # If pk was not provided, or if it matched, restaurant_obj is the one we use.
-        except AttributeError: # This means request.user.restaurant doesn't exist
-            return Response({"detail": "No restaurant associated with this user account."}, status=status.HTTP_404_NOT_FOUND)
-        # Restaurant.DoesNotExist is not directly applicable here as we access via user.restaurant
-        # If user.restaurant itself is None or raises DoesNotExist on access, AttributeError is more likely for the direct access.
-        # However, if request.user.restaurant was a lazy object that could raise DoesNotExist, the original except was fine.
-        # Given the OneToOneField, AttributeError is the primary concern if the relation isn't populated or user has no restaurant.
-
-        total_orders = Order.objects.filter(restaurant=restaurant_obj).count()
-        total_menu_items = MenuItem.objects.filter(restaurant=restaurant_obj).count()
-        
-        orders_by_status = Order.objects.filter(restaurant=restaurant_obj)\
-            .values('status')\
-            .annotate(count=Count('status'))\
-            .order_by('status')
-            
-        # Convert to a more friendly format
-        status_counts = {item['status']: item['count'] for item in orders_by_status}
-
-        data = {
-            'restaurant_id': restaurant_obj.id,
-            'restaurant_name': restaurant_obj.name,
-            'total_orders': total_orders,
-            'total_menu_items': total_menu_items,
-            'orders_by_status': status_counts,
-            # Add more stats here later, e.g., revenue, popular items
-        }
-        return Response(data)
-
 @extend_schema_view(
     list=extend_schema(summary="List menu categories", description="List all menu categories for a restaurant"),
     retrieve=extend_schema(summary="Get menu category", description="Retrieve a specific menu category"),
@@ -187,7 +146,6 @@ class MenuCategoryViewSet(viewsets.ModelViewSet):
         else:
             # This case should ideally be prevented by viewset permissions
             raise serializers.ValidationError("You do not have permission to create this resource here.")
-
 
 @extend_schema_view(
     list=extend_schema(summary="List menu items", description="List all menu items, optionally filtered by restaurant"),
@@ -256,3 +214,38 @@ class RestaurantReviewViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [permissions.AllowAny]
         return [permission() for permission in permission_classes]
+    
+
+class RestaurantStatisticsView(viewsets.ViewSet):
+
+    @extend_schema(
+        summary="Get restaurant statistics",
+        description="Get basic statistics for the currently authenticated restaurant owner's restaurant."
+    )
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsRestaurantOwner])
+    def get(self, request, pk=None):
+        try:
+            restaurant_obj = request.user.restaurant
+            if pk and restaurant_obj.id != uuid.UUID(pk):
+                 return Response({"detail": "Access to this restaurant's statistics is forbidden."}, status=status.HTTP_403_FORBIDDEN)
+        except AttributeError:
+            return Response({"detail": "No restaurant associated with this user account."}, status=status.HTTP_404_NOT_FOUND)
+
+        total_orders = Order.objects.filter(restaurant=restaurant_obj).count()
+        total_menu_items = MenuItem.objects.filter(restaurant=restaurant_obj).count()
+        
+        orders_by_status = Order.objects.filter(restaurant=restaurant_obj)\
+            .values('status')\
+            .annotate(count=Count('status'))\
+            .order_by('status')
+            
+        status_counts = {item['status']: item['count'] for item in orders_by_status}
+
+        data = {
+            'restaurant_id': restaurant_obj.id,
+            'restaurant_name': restaurant_obj.name,
+            'total_orders': total_orders,
+            'total_menu_items': total_menu_items,
+            'orders_by_status': status_counts,
+        }
+        return Response(data)

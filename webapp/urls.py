@@ -1,49 +1,40 @@
+# webapp/urls.py
 from django.urls import path
-from .views import (
-    HomePageView, 
-    LoginPageView, 
-    RegisterPageView,
-    CustomerDashboardView,
-    RestaurantDashboardView,
-    DriverDashboardView,
-    ProfilePageView,
-    RestaurantListView,
-    RestaurantDetailView,
-    ManageRestaurantView,
-    MenuManagementView,
-    MenuCategoryCreateView,
-    MenuCategoryEditView,
-    MenuItemCreateView,
-    MenuItemEditView,
-    RestaurantOrderListView,
-    DriverTaskListView,
-    DriverEarningsView,
-    CustomerOrderListView
-)
+from . import views
 
 app_name = 'webapp'
 
 urlpatterns = [
-    path('', HomePageView.as_view(), name='home'),
-    path('login/', LoginPageView.as_view(), name='login'),
-    path('register/', RegisterPageView.as_view(), name='register'),
-    # It's better to have a generic profile view that then loads user-specific data
-    # For now, these are direct links to placeholder dashboard templates
-    path('dashboard/customer/', CustomerDashboardView.as_view(), name='customer_dashboard'),
-    path('dashboard/restaurant/', RestaurantDashboardView.as_view(), name='restaurant_dashboard'),
-    path('dashboard/driver/', DriverDashboardView.as_view(), name='driver_dashboard'),
-    path('profile/', ProfilePageView.as_view(), name='profile'),
-    path('restaurants/', RestaurantListView.as_view(), name='restaurant_list'),
-    path('restaurants/<uuid:restaurant_id>/', RestaurantDetailView.as_view(), name='restaurant_detail'),
-    path('my-restaurant/manage/', ManageRestaurantView.as_view(), name='manage_restaurant'),
-    path('my-restaurant/menu/', MenuManagementView.as_view(), name='menu_management'),
-    path('my-restaurant/menu/categories/add/', MenuCategoryCreateView.as_view(), name='menu_category_create'),
-    path('my-restaurant/menu/categories/<uuid:category_id>/edit/', MenuCategoryEditView.as_view(), name='menu_category_edit'),
-    path('my-restaurant/menu/items/add/', MenuItemCreateView.as_view(), name='menu_item_create'), # Generic add item
-    path('my-restaurant/menu/categories/<uuid:category_id>/add-item/', MenuItemCreateView.as_view(), name='menu_item_create_in_category'), # Add item to specific category
-    path('my-restaurant/menu/items/<uuid:item_id>/edit/', MenuItemEditView.as_view(), name='menu_item_edit'),
-    path('my-restaurant/orders/', RestaurantOrderListView.as_view(), name='restaurant_orders'),
-    path('driver/tasks/', DriverTaskListView.as_view(), name='driver_task_list'),
-    path('driver/earnings/', DriverEarningsView.as_view(), name='driver_earnings_report'),
-    path('orders/my/', CustomerOrderListView.as_view(), name='customer_order_list'),
+    # Existing URLs
+    path('', views.home, name='home'),
+    path('login/', views.login_view, name='login'),
+    path('register/', views.register_view, name='register'),
+    path('profile/', views.profile_view, name='profile'),
+    
+    # Dashboard URLs
+    path('dashboard/', views.dashboard_view, name='dashboard'),
+    path('dashboard/restaurant/', views.restaurant_dashboard, name='restaurant_dashboard'),
+    path('dashboard/customer/', views.customer_dashboard, name='customer_dashboard'),
+    path('dashboard/driver/', views.driver_dashboard, name='driver_dashboard'),
+    
+    # Restaurant URLs
+    path('restaurants/', views.restaurant_list, name='restaurant_list'),
+    path('restaurants/<uuid:restaurant_id>/', views.restaurant_detail, name='restaurant_detail'),
+    
+    # Customer URLs
+    path('my-orders/', views.customer_order_list, name='customer_order_list'),
+    
+    # Restaurant Owner URLs
+    path('my-restaurant/', views.manage_restaurant, name='manage_restaurant'),
+    path('my-restaurant/orders/', views.restaurant_orders, name='restaurant_orders'),
+    path('my-restaurant/menu/', views.menu_management, name='menu_management'),
+    path('my-restaurant/menu/categories/add/', views.menu_category_create, name='menu_category_create'),
+    path('my-restaurant/menu/categories/<uuid:category_id>/edit/', views.menu_category_edit, name='menu_category_edit'),
+    path('my-restaurant/menu/categories/<uuid:category_id>/add-item/', views.menu_item_create, name='menu_item_create_with_category'),
+    path('my-restaurant/menu/items/add/', views.menu_item_create, name='menu_item_create'),
+    path('my-restaurant/menu/items/<uuid:item_id>/edit/', views.menu_item_edit, name='menu_item_edit'),
+    
+    # Driver URLs
+    path('driver/tasks/', views.driver_task_list, name='driver_task_list'),
+    path('driver/earnings/', views.driver_earnings_report, name='driver_earnings_report'),
 ]

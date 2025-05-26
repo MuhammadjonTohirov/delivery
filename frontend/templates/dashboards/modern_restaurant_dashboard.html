@@ -1,0 +1,344 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Dashboard - Delivery Platform</title>
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <h2>Pizzaren</h2>
+                    <span class="subtitle">Restaurant</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="nav-item active">
+                        <a href="#" data-section="dashboard">
+                            <i class="fas fa-home"></i>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" data-section="orders">
+                            <i class="fas fa-list"></i>
+                            Order List
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" data-section="restaurants">
+                            <i class="fas fa-utensils"></i>
+                            Restaurants
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" data-section="reviews">
+                            <i class="fas fa-star"></i>
+                            Reviews
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" data-section="foods">
+                            <i class="fas fa-pizza-slice"></i>
+                            Foods
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" data-section="customers">
+                            <i class="fas fa-users"></i>
+                            Customers
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-left">
+                    <div class="page-title">
+                        <h1 id="page-title">Dashboard</h1>
+                        <p id="page-subtitle">Hi, {{ user.full_name }}. Welcome back to Sedap Admin!</p>
+                    </div>
+                </div>
+                
+                <div class="header-right">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search foods, menu, customers, restaurants" id="global-search">
+                    </div>
+                    
+                    <div class="header-actions">
+                        <div class="notification-icon">
+                            <i class="fas fa-bell"></i>
+                            <span class="badge">4</span>
+                        </div>
+                        <div class="notification-icon">
+                            <i class="fas fa-envelope"></i>
+                            <span class="badge">2</span>
+                        </div>
+                        <div class="notification-icon">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span class="badge">3</span>
+                        </div>
+                        <div class="notification-icon">
+                            <i class="fas fa-heart"></i>
+                            <span class="badge">5</span>
+                        </div>
+                    </div>
+                    
+                    <div class="user-profile">
+                        <img src="{% static 'images/default-avatar.png' %}" alt="User Avatar">
+                        <span>Hello, {{ user.full_name }}</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="content-wrapper">
+                <!-- Dashboard Section -->
+                <section id="dashboard-section" class="content-section active">
+                    <div class="section-header">
+                        <div class="restaurant-selector">
+                            <i class="fas fa-store"></i>
+                            <select id="restaurant-select">
+                                <option value="">Select Restaurant...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-periode">
+                            <button class="filter-btn">
+                                <i class="fas fa-calendar"></i>
+                                Filter Periode
+                                <span class="periode-text">17 April 2020 - 21 May 2020</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Statistics Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card stat-orders">
+                            <div class="stat-icon">
+                                <i class="fas fa-shopping-bag"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="total-orders">0</h3>
+                                <p>Total Orders</p>
+                                <span class="stat-change positive">8.5% Up from yesterday</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card stat-delivered">
+                            <div class="stat-icon">
+                                <i class="fas fa-truck"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="total-delivered">0</h3>
+                                <p>Total Delivered</p>
+                                <span class="stat-change positive">1.3% Up from past week</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card stat-cancelled">
+                            <div class="stat-icon">
+                                <i class="fas fa-times-circle"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="total-cancelled">0</h3>
+                                <p>Total Cancelled</p>
+                                <span class="stat-change negative">4.3% Down from yesterday</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card stat-revenue">
+                            <div class="stat-icon">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="total-revenue">$0</h3>
+                                <p>Total Revenue</p>
+                                <span class="stat-change positive">1.8% Up from yesterday</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Section -->
+                    <div class="charts-section">
+                        <div class="chart-row">
+                            <!-- Pie Charts -->
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <h3>Pie Chart</h3>
+                                    <div class="chart-controls">
+                                        <label><input type="checkbox" checked> Chart</label>
+                                        <label><input type="checkbox" checked> Show Value</label>
+                                        <button class="menu-btn"><i class="fas fa-ellipsis-v"></i></button>
+                                    </div>
+                                </div>
+                                <div class="pie-charts">
+                                    <div class="pie-chart">
+                                        <canvas id="totalOrderChart"></canvas>
+                                        <p>Total Order</p>
+                                    </div>
+                                    <div class="pie-chart">
+                                        <canvas id="customerGrowthChart"></canvas>
+                                        <p>Customer Growth</p>
+                                    </div>
+                                    <div class="pie-chart">
+                                        <canvas id="totalRevenueChart"></canvas>
+                                        <p>Total Revenue</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Line Chart -->
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <h3>Chart Order</h3>
+                                    <button class="save-report-btn" onclick="window.dashboardManager?.exportReport('orders')">
+                                        <i class="fas fa-download"></i>
+                                        Save Report
+                                    </button>
+                                </div>
+                                <div class="line-chart-wrapper">
+                                    <canvas id="orderChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-row">
+                            <!-- Revenue Chart -->
+                            <div class="chart-container">
+                                <h3>Total Revenue</h3>
+                                <canvas id="revenueChart"></canvas>
+                            </div>
+
+                            <!-- Orders Count Chart -->
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <h3>Orders count</h3>
+                                    <select class="period-select">
+                                        <option>Weekly</option>
+                                        <option>Monthly</option>
+                                        <option>Yearly</option>
+                                    </select>
+                                </div>
+                                <canvas id="ordersCountChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Customer Reviews -->
+                    <div class="reviews-section">
+                        <div class="reviews-header">
+                            <div>
+                                <h3>Customer Review</h3>
+                                <p>Eum fuga consequuntur utadm et.</p>
+                            </div>
+                            <div class="reviews-nav">
+                                <button class="nav-btn prev"><i class="fas fa-chevron-left"></i></button>
+                                <button class="nav-btn next"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+                        <div class="reviews-container" id="customer-reviews">
+                            <!-- Reviews will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Orders Section -->
+                <section id="orders-section" class="content-section">
+                    <div class="orders-container">
+                        <h2>Order Management</h2>
+                        <div class="orders-filters">
+                            <select id="order-status-filter">
+                                <option value="">All Statuses</option>
+                                <option value="PLACED">Placed</option>
+                                <option value="CONFIRMED">Confirmed</option>
+                                <option value="PREPARING">Preparing</option>
+                                <option value="READY_FOR_PICKUP">Ready for Pickup</option>
+                                <option value="ON_THE_WAY">On the Way</option>
+                                <option value="DELIVERED">Delivered</option>
+                                <option value="CANCELLED">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="orders-list" id="orders-list">
+                            <!-- Orders will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Restaurants Section -->
+                <section id="restaurants-section" class="content-section">
+                    <div class="restaurants-container">
+                        <h2>My Restaurants</h2>
+                        <div class="restaurants-actions">
+                            <a href="{% url 'webapp:manage_restaurant' %}" class="btn-primary">
+                                <i class="fas fa-plus"></i>
+                                Add New Restaurant
+                            </a>
+                        </div>
+                        <div class="restaurants-list" id="restaurants-list">
+                            <!-- Restaurants will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Reviews Section -->
+                <section id="reviews-section" class="content-section">
+                    <div class="reviews-container">
+                        <h2>All Reviews</h2>
+                        <div class="reviews-list" id="reviews-list">
+                            <!-- Reviews will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Foods Section -->
+                <section id="foods-section" class="content-section">
+                    <div class="foods-container">
+                        <h2>Menu Management</h2>
+                        <div class="foods-actions">
+                            <a href="{% url 'webapp:menu_management' %}" class="btn-primary">
+                                <i class="fas fa-cogs"></i>
+                                Manage Menu
+                            </a>
+                            <button class="btn-primary" id="add-food-btn">
+                                <i class="fas fa-plus"></i>
+                                Add New Food
+                            </button>
+                        </div>
+                        <div class="foods-list" id="foods-list">
+                            <!-- Foods will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Customers Section -->
+                <section id="customers-section" class="content-section">
+                    <div class="customers-container">
+                        <h2>Customer Management</h2>
+                        <div class="customers-list" id="customers-list">
+                            <!-- Customers will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/dashboard-components.js' %}"></script>
+    <script src="{% static 'js/dashboard-charts.js' %}"></script>
+    <script src="{% static 'js/dashboard-main.js' %}"></script>
+</body>
+</html>
