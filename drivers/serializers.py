@@ -54,10 +54,7 @@ class DriverTaskSerializer(serializers.ModelSerializer):
             # Handle status transitions
             if new_status == 'ACCEPTED' and instance.status == 'PENDING':
                 instance.accepted_at = timezone.now()
-                # Update order status
-                order = instance.order
-                order.status = 'PICKED_UP'
-                order.save()
+                # Order status is NOT changed here. It changes when driver picks up.
             elif new_status == 'PICKED_UP' and instance.status == 'ACCEPTED':
                 instance.picked_up_at = timezone.now()
                 # Update order status

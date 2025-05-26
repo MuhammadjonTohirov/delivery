@@ -52,6 +52,7 @@
             </label>
         </div>
         
+        <div id="form-errors" class="text-danger mb-3" style="min-height: 1.5em;"></div> <!-- Error display element -->
         <button type="submit" class="btn btn-primary">Save Menu Item</button>
         <a href="{% url 'webapp:menu_management' %}" class="btn btn-secondary">Cancel</a>
     </form>
@@ -74,6 +75,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const currentItemImage = document.getElementById('current-item-image');
     const itemIsAvailableCheckbox = document.getElementById('itemIsAvailable');
     const itemIsFeaturedCheckbox = document.getElementById('itemIsFeatured');
+    const formErrorsEl = document.getElementById('form-errors'); // Get the error element
     
     const accessToken = localStorage.getItem('accessToken');
     const isEditMode = itemIdInput.value !== '' && itemIdInput.value !== 'None';
@@ -186,8 +188,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     menuItemForm.addEventListener('submit', function(event) {
         event.preventDefault();
+        formErrorsEl.innerHTML = ''; // Clear previous errors
+
         if (!myRestaurantId) {
-            alert("Your restaurant information is not available. Cannot save item.");
+            formErrorsEl.innerHTML = '<div>Your restaurant information is not available. Cannot save item.</div>';
             return;
         }
 
@@ -226,17 +230,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert(`Menu item ${isEditMode ? 'updated' : 'created'} successfully!`);
                 window.location.href = "{% url 'webapp:menu_management' %}";
             })
-            .catch(error => {
-                console.error(`Error ${isEditMode ? 'updating' : 'creating'} menu item:`, error);
-                let errorMessage = `Failed to ${isEditMode ? 'update' : 'create'} menu item.\n`;
-                 if (typeof error === 'object' && error !== null) {
-                    for (const key in error) {
-                        errorMessage += `${key}: ${Array.isArray(error[key]) ? error[key].join(', ') : error[key]}\n`;
-                    }
-                } else {
-                    errorMessage += error;
+            .catch(errorData => {
+                console.error(`Error ${isEditMode ? 'updating' : 'creating'} menu item:`, errorData);
+                let errorMessages = [`Failed to ${isEditMode ? 'update' : 'create'} menu item:`];
+                
+                function formatFieldName(fieldName) {
+                    const words = fieldName.replace(/_/g, ' ').split(' ');
+                    return words.map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
                 }
-                alert(errorMessage.trim());
+
+                if (typeof errorData === 'object' && errorData !== null) {
+                    for (const key in errorData) {
+                        const formattedKey = formatFieldName(key);
+                        if (Array.isArray(errorData[key])) {
+                            errorMessages.push(`${formattedKey}: ${errorData[key].join(', ')}`);
+                        } else if (typeof errorData[key] === 'string') {
+                            errorMessages.push(`${formattedKey}: ${errorData[key]}`);
+                        } else if (typeof errorData[key] === 'object' && errorData[key] !== null) { // For nested errors
+                             for (const subKey in errorData[key]) {
+                                const formattedSubKey = formatFieldName(subKey);
+                                errorMessages.push(`${formattedKey} - ${formattedSubKey}: ${errorData[key][subKey].join(', ')}`);
+                            }
+                        }
+                    }
+                } else if (typeof errorData === 'string') {
+                    errorMessages.push(errorData);
+                }
+
+                if (errorMessages.length === 1) { // Only the initial "Failed to..." message
+                    errorMessages.push('An unknown error occurred. Please check the console.');
+                }
+                formErrorsEl.innerHTML = errorMessages.map(e => `<div>- ${e}</div>`).join('');
             });
     });
 });

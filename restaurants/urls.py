@@ -7,8 +7,8 @@ router.register(r'restaurants', RestaurantViewSet, basename='restaurant')
 router.register(r'categories', MenuCategoryViewSet, basename='category')
 router.register(r'menu-items', MenuItemViewSet, basename='menu-item')
 router.register(r'reviews', RestaurantReviewViewSet, basename='review')
-# r'mine' # This was an incorrect registration, 'mine' should be an action in RestaurantViewSet
-router.register(r'mine', RestaurantViewSet, basename='my-restaurant')
+# The 'mine' action is automatically routed under /restaurants/mine/ by the 'restaurants' registration.
+# router.register(r'mine', RestaurantViewSet, basename='my-restaurant') # This line is redundant.
 app_name = 'restaurants'
 
 urlpatterns = [

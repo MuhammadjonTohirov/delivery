@@ -12,17 +12,22 @@ class MenuItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
     
     def validate_restaurant(self, value):
-        """
-        Check that the restaurant belongs to the current user.
-        """
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            if request.user.role == 'RESTAURANT' and hasattr(request.user, 'restaurant'):
+            if request.user.is_staff:
+                return value # Admin can associate with any restaurant
+            
+            if request.user.role == 'RESTAURANT':
+                if not hasattr(request.user, 'restaurant'):
+                     raise serializers.ValidationError("Your user profile is not associated with a restaurant.")
                 if request.user.restaurant != value:
-                    raise serializers.ValidationError("You can only modify menu items for your own restaurant.")
-            elif request.user.role != 'ADMIN':
-                raise serializers.ValidationError("Only restaurant owners or admins can modify menu items.")
-        return value
+                    raise serializers.ValidationError("You can only modify items/categories for your own restaurant.")
+                return value
+            else:
+                # Other roles (e.g. Customer) cannot set/change restaurant field directly
+                raise serializers.ValidationError("You do not have permission to assign or change the restaurant for this item/category.")
+        # Fallback or if user not authenticated (though view permissions should handle this)
+        return value # Or raise error if unauthenticated modification is not allowed
 
 
 class MenuCategorySerializer(serializers.ModelSerializer):
@@ -34,17 +39,22 @@ class MenuCategorySerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
     
     def validate_restaurant(self, value):
-        """
-        Check that the restaurant belongs to the current user.
-        """
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            if request.user.role == 'RESTAURANT' and hasattr(request.user, 'restaurant'):
+            if request.user.is_staff:
+                return value # Admin can associate with any restaurant
+            
+            if request.user.role == 'RESTAURANT':
+                if not hasattr(request.user, 'restaurant'):
+                     raise serializers.ValidationError("Your user profile is not associated with a restaurant.")
                 if request.user.restaurant != value:
-                    raise serializers.ValidationError("You can only modify categories for your own restaurant.")
-            elif request.user.role != 'ADMIN':
-                raise serializers.ValidationError("Only restaurant owners or admins can modify menu categories.")
-        return value
+                    raise serializers.ValidationError("You can only modify items/categories for your own restaurant.")
+                return value
+            else:
+                # Other roles (e.g. Customer) cannot set/change restaurant field directly
+                raise serializers.ValidationError("You do not have permission to assign or change the restaurant for this item/category.")
+        # Fallback or if user not authenticated (though view permissions should handle this)
+        return value # Or raise error if unauthenticated modification is not allowed
 
 
 class RestaurantReviewSerializer(serializers.ModelSerializer):
@@ -75,12 +85,11 @@ class RestaurantSerializer(serializers.ModelSerializer):
     
     def get_average_rating(self, obj):
         """
-        Calculate the average rating for the restaurant.
+        Retrieve the pre-calculated average rating from the annotated field.
         """
-        reviews = obj.reviews.all()
-        if reviews.exists():
-            total = sum(review.rating for review in reviews)
-            return round(total / reviews.count(), 1)
+        # The 'average_rating_annotated' field is added in RestaurantViewSet's get_queryset
+        if hasattr(obj, 'average_rating_annotated') and obj.average_rating_annotated is not None:
+            return round(obj.average_rating_annotated, 1)
         return None
     
     def create(self, validated_data):

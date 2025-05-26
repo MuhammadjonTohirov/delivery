@@ -3,36 +3,70 @@
 {% block title %}Customer Dashboard - Delivery Platform{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1>Welcome, {{ user.full_name }}! (Customer Dashboard)</h1>
-    <p>This is your personal dashboard. Here you can manage your orders, view your profile, and more.</p>
-    
-    <div class="row mt-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">My Orders</h5>
-                    <p class="card-text">View your past and current orders.</p>
-                    <a href="#" class="btn btn-primary">View Orders</a>
+<div class="container py-4">
+
+    <!-- Header Section -->
+    <div class="p-5 mb-4 bg-light rounded-3">
+        <div class="container-fluid py-3">
+            <h1 class="display-5 fw-bold">Welcome, {{ user.full_name|default:'Valued Customer' }}!</h1>
+            <p class="col-md-10 fs-4">Your personal space to manage orders, update your profile, and discover great food.</p>
+        </div>
+    </div>
+
+    <!-- Main Action Cards -->
+    <div class="row align-items-stretch mb-4">
+        <div class="col-md-6 mb-4 mb-md-0">
+            <div class="card text-center h-100">
+                <div class="card-body d-flex flex-column p-4">
+                    <h5 class="card-title h3">My Orders</h5>
+                    <p class="card-text fs-5 flex-grow-1">View your past and current orders, track deliveries, and manage your order history.</p>
+                    <a href="{% url 'webapp:customer_order_list' %}" class="btn btn-primary mt-auto py-2 fs-5">View My Orders</a>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">My Profile</h5>
-                    <p class="card-text">Update your personal information and preferences.</p>
-                    <a href="{% url 'webapp:profile' %}" class="btn btn-secondary">Edit Profile</a>
+            <div class="card text-center h-100">
+                <div class="card-body d-flex flex-column p-4">
+                    <h5 class="card-title h3">My Profile</h5>
+                    <p class="card-text fs-5 flex-grow-1">Update your personal information, delivery addresses, and communication preferences.</p>
+                    <a href="{% url 'webapp:profile' %}" class="btn btn-secondary mt-auto py-2 fs-5">Edit Profile</a>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Find Restaurants CTA -->
+    <div class="card text-center mb-4">
+        <div class="card-body p-lg-5 p-4">
+            <h3 class="card-title h2">Ready to Order?</h3>
+            <p class="card-text lead my-3">Explore nearby restaurants and discover your next favorite meal. <br>Easy ordering, fast delivery.</p>
+            <a href="{% url 'webapp:restaurant_list' %}" class="btn btn-success btn-lg mt-2 py-3 px-4 fs-5">Find Restaurants Now</a>
+        </div>
+    </div>
     
+    <!-- Placeholder for Recent Activity -->
     <div class="mt-5">
-        <h3>Browse Restaurants</h3>
-        <p>Explore nearby restaurants and place a new order.</p>
-        <!-- Restaurant listing will go here -->
-        <a href="{% url 'webapp:restaurant_list' %}" class="btn btn-success">Find Restaurants</a>
+        <h3 class="mb-3">Recent Activity</h3>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Latest Orders</h5>
+                        <p class="card-text">Your last 3 orders would appear here with quick links to reorder or view details.</p>
+                        <p class="text-muted small">(Feature coming soon)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Favorite Restaurants</h5>
+                        <p class="card-text">Quick links to your most visited or favorited restaurants.</p>
+                        <p class="text-muted small">(Feature coming soon)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

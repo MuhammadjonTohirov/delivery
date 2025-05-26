@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Count # Import Count
 from .models import Order, OrderItem, OrderStatusUpdate
 from .serializers import (
     OrderSerializer,
@@ -84,32 +85,39 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        
-        # Admin can see all orders
+        qs = Order.objects.none() # Default to no results
+
         if user.is_staff:
-            return Order.objects.all().select_related('customer', 'restaurant')
+            qs = Order.objects.all().select_related('customer', 'restaurant')
+        elif user.role == 'CUSTOMER':
+            qs = Order.objects.filter(customer=user).select_related('customer', 'restaurant')
+        elif user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+            qs = Order.objects.filter(restaurant=user.restaurant).select_related('customer', 'restaurant')
+        elif user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+            qs = Order.objects.filter(driver_task__driver__user=user).select_related('customer', 'restaurant')
         
-        # Customer can only see their own orders
-        if user.role == 'CUSTOMER':
-            return Order.objects.filter(customer=user).select_related('customer', 'restaurant')
+        # If qs is still Order.objects.none(), no need to apply further optimizations
+        if qs.model == Order.objects.none().model and not qs.exists(): # Check if it's still the empty queryset
+             return qs
+
+        if self.action == 'list':
+            qs = qs.annotate(item_count=Count('items')).prefetch_related('items')
+        elif self.action == 'retrieve': # This also applies to other detail-view actions like 'history', 'update', etc.
+            qs = qs.prefetch_related('items', 'status_updates')
+        # For other actions like 'create', 'update', 'partial_update', the base qs is fine as they typically operate on a single instance
+        # or don't require these specific prefetches for their primary operation.
+        # Custom actions like 'history' will benefit from 'retrieve's prefetching if they call get_object().
         
-        # Restaurant owner can see orders for their restaurant
-        if user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
-            return Order.objects.filter(restaurant=user.restaurant).select_related('customer', 'restaurant')
-        
-        # Driver can see orders assigned to them
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
-            # Return orders where the driver is assigned
-            return Order.objects.filter(
-                driver_task__driver__user=user
-            ).select_related('customer', 'restaurant')
-        
-        return Order.objects.none()
+        return qs
     
     def get_permissions(self):
         if self.action == 'create':
             permission_classes = [permissions.IsAuthenticated, IsCustomer]
+        elif self.action in ['update', 'partial_update']:
+            permission_classes = [permissions.IsAuthenticated, IsAdminUser]
         else:
+            # For list, retrieve, and custom actions, use the existing OrderPermission
+            # OrderPermission itself will handle role-specific access (e.g., customer sees own orders)
             permission_classes = [OrderPermission]
         return [permission() for permission in permission_classes]
     
@@ -161,6 +169,34 @@ class OrderViewSet(viewsets.ModelViewSet):
             status_note = note or "Order rejected by restaurant."
             order.update_status('CANCELLED', request.user, notes=status_note)
         
+        serializer = self.get_serializer(order)
+        return Response(serializer.data)
+
+    @extend_schema(
+        summary="Mark order ready for pickup",
+        description="Restaurant owner can mark an order as ready for pickup"
+    )
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated, IsRestaurantOwner])
+    def mark_ready_for_pickup(self, request, pk=None):
+        order = self.get_object()
+        note = request.data.get('note', 'Order is ready for pickup.')
+
+        # Ensure the restaurant owns this order
+        if not hasattr(request.user, 'restaurant') or order.restaurant != request.user.restaurant:
+            return Response(
+                {"error": "You can only perform actions on orders for your restaurant."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Ensure the order is in the correct state
+        if order.status != 'PREPARING':
+            return Response(
+                {"error": f"Cannot mark order as ready for pickup. Current status is {order.status}."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        order.update_status('READY_FOR_PICKUP', request.user, notes=note)
+
         serializer = self.get_serializer(order)
         return Response(serializer.data)
     

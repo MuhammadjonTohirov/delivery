@@ -3,62 +3,79 @@
 {% block title %}Restaurant Dashboard - Delivery Platform{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1>Welcome, {{ user.full_name }}! (Restaurant Dashboard)</h1>
-    <p>Manage your restaurant, menu, orders, and view analytics.</p>
+<div class="container py-4">
 
-    <div class="row mt-4">
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Manage Menu</h5>
-                    <p class="card-text">Add, edit, or remove menu items and categories.</p>
-                    <a href="{% url 'webapp:menu_management' %}" class="btn btn-primary">Go to Menu Management</a>
+    <!-- Header Section -->
+    <div class="p-5 mb-4 bg-light rounded-3 shadow-sm">
+        <div class="container-fluid py-3"> <!-- Reduced py-5 to py-3 for a slightly smaller header -->
+            <h1 class="display-5 fw-bold">Restaurant Dashboard</h1>
+            <p class="col-md-10 fs-4">Welcome, {{ user.full_name|default:'Manager' }}! Manage your restaurant, track orders, and view performance.</p>
+            <!-- If restaurant name is available: <p class="fs-5 mt-2"><strong>{{ user.restaurant_profile.business_name }}</strong></p> -->
+        </div>
+    </div>
+
+    <!-- Main Action Cards -->
+    <div class="row align-items-stretch mb-4">
+        <div class="col-lg-4 mb-4">
+            <div class="card text-center h-100">
+                <div class="card-body d-flex flex-column p-4">
+                    <h5 class="card-title h3">Manage Menu</h5>
+                    <p class="card-text fs-5 flex-grow-1">Add, edit, or remove menu items and categories to keep your offerings up-to-date.</p>
+                    <a href="{% url 'webapp:menu_management' %}" class="btn btn-primary mt-auto py-2 fs-5">Go to Menu Management</a>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">View Orders</h5>
-                    <p class="card-text">Track incoming and past orders.</p>
-                    <a href="{% url 'webapp:restaurant_orders' %}" class="btn btn-info">View Current Orders</a>
+        <div class="col-lg-4 mb-4">
+            <div class="card text-center h-100">
+                <div class="card-body d-flex flex-column p-4">
+                    <h5 class="card-title h3">View Orders</h5>
+                    <p class="card-text fs-5 flex-grow-1">Track incoming orders, manage their status, and view your order history.</p>
+                    <a href="{% url 'webapp:restaurant_orders' %}" class="btn btn-info mt-auto py-2 fs-5">View Current Orders</a>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Restaurant Profile</h5>
-                    <p class="card-text">Update your restaurant's details and settings.</p>
-                    <a href="{% url 'webapp:manage_restaurant' %}" class="btn btn-secondary">Manage My Restaurant</a>
+        <div class="col-lg-4 mb-4">
+            <div class="card text-center h-100">
+                <div class="card-body d-flex flex-column p-4">
+                    <h5 class="card-title h3">Restaurant Profile</h5>
+                    <p class="card-text fs-5 flex-grow-1">Update your restaurant's details, opening hours, and other important settings.</p>
+                    <a href="{% url 'webapp:manage_restaurant' %}" class="btn btn-secondary mt-auto py-2 fs-5">Manage My Restaurant</a>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Statistics Section -->
     <div class="mt-5">
-        <h3>Restaurant Statistics</h3>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Overview</h5>
-                        <canvas id="overviewStatsChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Order Status Distribution</h5>
-                        <canvas id="orderStatusChart"></canvas>
-                    </div>
-                </div>
-            </div>
+        <h2 class="mb-4 text-center">Restaurant Statistics</h2>
+        <div id="stats-loading-message" class="text-center mb-3">
+            <p class="lead">Loading statistics...</p>
         </div>
-        <div id="stats-loading-message" class="mt-3">
-            <p>Loading statistics...</p>
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header text-center">
+                        <h5 class="mb-0">Key Metrics Overview</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="min-height: 300px; position: relative;">
+                             <canvas id="overviewStatsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                     <div class="card-header text-center">
+                        <h5 class="mb-0">Order Status Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="min-height: 300px; position: relative;">
+                            <canvas id="orderStatusChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

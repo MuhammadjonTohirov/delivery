@@ -3,22 +3,28 @@
 {% block title %}Login - Delivery Platform{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <h2>Login</h2>
-        <form id="login-form" method="post">
-            {% csrf_token %} <!-- Important for Django forms if submitting to a Django view -->
-            <div class="mb-3">
-                <label for="email" class="form-label">Email address</label>
-                <input type="email" class="form-control" id="email" name="email" required>
+<div class="row justify-content-center my-5">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light text-center py-3">
+                <h4 class="mb-0">Login</h4>
             </div>
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password" required>
+            <div class="card-body p-4">
+                <form id="login-form" method="post">
+                    {% csrf_token %} <!-- Important for Django forms if submitting to a Django view -->
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email address <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-2 mt-4">Login</button>
+                </form>
             </div>
-            <button type="submit" class="btn btn-primary">Login</button>
-        </form>
-        <p class="mt-3">
+        </div>
+        <p class="mt-4 text-center">
             Don't have an account? <a href="{% url 'webapp:register' %}">Register here</a>
         </p>
     </div>
@@ -48,13 +54,34 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Redirect to home or dashboard
                     window.location.href = "{% url 'webapp:home' %}"; 
                 } else {
-                    // Handle login error (e.g., display message)
-                    alert(data.detail || 'Login failed. Please check your credentials.');
+                    // Handle login error
+                    let errorMessages = [];
+                    if (data.detail) {
+                        errorMessages.push(data.detail);
+                    } else if (data.non_field_errors && Array.isArray(data.non_field_errors)) {
+                        data.non_field_errors.forEach(err => errorMessages.push(err));
+                    } else {
+                        // Check for field-specific errors
+                        for (const key in data) {
+                            if (Array.isArray(data[key])) {
+                                const fieldName = key.charAt(0).toUpperCase() + key.slice(1); // Capitalize first letter
+                                errorMessages.push(`${fieldName}: ${data[key].join(', ')}`);
+                            } else if (typeof data[key] === 'string') { // Catch other string errors
+                                const fieldName = key.charAt(0).toUpperCase() + key.slice(1);
+                                errorMessages.push(`${fieldName}: ${data[key]}`);
+                            }
+                        }
+                    }
+
+                    if (errorMessages.length === 0) {
+                        errorMessages.push('Login failed. Please check your credentials or try again.');
+                    }
+                    alert(errorMessages.join('\n'));
                     console.error('Login failed:', data);
                 }
             })
             .catch(error => {
-                alert('An error occurred during login.');
+                alert('An error occurred during login. Please check your network connection and try again.');
                 console.error('Login error:', error);
             });
         });
