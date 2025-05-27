@@ -1,0 +1,14 @@
+{% load static %}
+
+<div class="restaurants-container">
+  <h2>My Restaurants</h2>
+  <div class="restaurants-actions">
+    <a href="{% url 'webapp:manage_restaurant' %}" class="btn-primary">
+      <i class="fas fa-plus"></i>
+      Add New Restaurant
+    </a>
+  </div>
+  <div class="restaurants-list" id="restaurants-list">
+    <!-- Restaurants will be loaded here -->
+  </div>
+</div>

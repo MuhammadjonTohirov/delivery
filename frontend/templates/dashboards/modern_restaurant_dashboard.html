@@ -78,25 +78,6 @@
                         <input type="text" placeholder="Search foods, menu, customers, restaurants" id="global-search">
                     </div>
                     
-                    <div class="header-actions">
-                        <div class="notification-icon">
-                            <i class="fas fa-bell"></i>
-                            <span class="badge">4</span>
-                        </div>
-                        <div class="notification-icon">
-                            <i class="fas fa-envelope"></i>
-                            <span class="badge">2</span>
-                        </div>
-                        <div class="notification-icon">
-                            <i class="fas fa-shopping-cart"></i>
-                            <span class="badge">3</span>
-                        </div>
-                        <div class="notification-icon">
-                            <i class="fas fa-heart"></i>
-                            <span class="badge">5</span>
-                        </div>
-                    </div>
-                    
                     <div class="user-profile">
                         <img src="{% static 'images/default-avatar.png' %}" alt="User Avatar">
                         <span>Hello, {{ user.full_name }}</span>
@@ -280,18 +261,7 @@
 
                 <!-- Restaurants Section -->
                 <section id="restaurants-section" class="content-section">
-                    <div class="restaurants-container">
-                        <h2>My Restaurants</h2>
-                        <div class="restaurants-actions">
-                            <a href="{% url 'webapp:manage_restaurant' %}" class="btn-primary">
-                                <i class="fas fa-plus"></i>
-                                Add New Restaurant
-                            </a>
-                        </div>
-                        <div class="restaurants-list" id="restaurants-list">
-                            <!-- Restaurants will be loaded here -->
-                        </div>
-                    </div>
+                    {% include 'dashboards/bodies/dashboard_restaurants_section.html' %}
                 </section>
 
                 <!-- Reviews Section -->
