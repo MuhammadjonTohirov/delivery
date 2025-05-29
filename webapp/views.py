@@ -70,6 +70,19 @@ def restaurant_dashboard(request):
     return render(request, 'dashboards/modern_restaurant_dashboard.html', context)
 
 @login_required
+def restaurant_dashboard_new(request):
+    """New Restaurant dashboard view - Modular UI"""
+    if request.user.role not in ['RESTAURANT', 'ADMIN']:
+        return redirect('webapp:home')
+    
+    context = {
+        'user': request.user,
+        'page_title': 'Restaurant Dashboard'
+    }
+    
+    return render(request, 'dashboards/restaurant_dashboard_new.html', context)
+
+@login_required
 def driver_dashboard(request):
     """Driver dashboard view"""
     if request.user.role not in ['DRIVER', 'ADMIN']:

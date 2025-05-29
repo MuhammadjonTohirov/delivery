@@ -3,9 +3,9 @@ import uuid # Added for statistics pk conversion
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Count, Avg, Q # Added Q for search queries
 from .models import Restaurant, MenuCategory, MenuItem, RestaurantReview
 from orders.models import Order # Added for statistics
-from django.db.models import Count, Avg # Added for statistics and Avg for annotation
 from .serializers import (
     RestaurantSerializer, 
     RestaurantListSerializer,
@@ -93,6 +93,56 @@ class RestaurantViewSet(viewsets.ModelViewSet):
         summary="Get my restaurant",
         description="Get the restaurant details for the currently authenticated restaurant owner."
     )
+    @extend_schema(
+        summary="Search restaurants and menu items",
+        description="Advanced search across restaurants and menu items with filters"
+    )
+    @action(detail=False, methods=['get'])
+    def search(self, request):
+        query = request.query_params.get('q', '')
+        cuisine = request.query_params.get('cuisine', '')
+        min_rating = request.query_params.get('min_rating')
+        delivery_fee_max = request.query_params.get('delivery_fee_max')
+        is_open = request.query_params.get('is_open')
+        
+        restaurants = self.get_queryset()
+        
+        # Text search in name and description
+        if query:
+            restaurants = restaurants.filter(
+                Q(name__icontains=query) | Q(description__icontains=query)
+            )
+        
+        # Filter by cuisine (if you add cuisine field)
+        # if cuisine:
+        #     restaurants = restaurants.filter(cuisine__icontains=cuisine)
+        
+        # Filter by minimum rating
+        if min_rating:
+            restaurants = restaurants.filter(average_rating_annotated__gte=float(min_rating))
+        
+        # Filter by open status
+        if is_open:
+            restaurants = restaurants.filter(is_open=is_open.lower() == 'true')
+        
+        # Search in menu items as well
+        menu_items = MenuItem.objects.filter(is_available=True)
+        if query:
+            menu_items = menu_items.filter(
+                Q(name__icontains=query) | Q(description__icontains=query)
+            )
+            # Add restaurants that have matching menu items
+            restaurant_ids_with_items = menu_items.values_list('restaurant_id', flat=True)
+            restaurants = restaurants.filter(
+                Q(id__in=restaurant_ids_with_items) | Q(id__in=restaurants.values_list('id', flat=True))
+            ).distinct()
+        
+        serializer = self.get_serializer(restaurants, many=True)
+        return Response({
+            'restaurants': serializer.data,
+            'total_count': restaurants.count()
+        })
+    
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsRestaurantOwner])
     def mine(self, request):
         try:

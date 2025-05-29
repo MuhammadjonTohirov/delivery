@@ -21,6 +21,12 @@ urlpatterns = [
     path('api/restaurants/', include('restaurants.urls')),
     path('api/orders/', include('orders.urls')),
     path('api/drivers/', include('drivers.urls')),
+    path('api/payments/', include('payments.urls')),
+    path('api/promotions/', include('promotions.urls')),
+    path('api/notifications/', include('notifications.urls')),
+    path('api/geography/', include('geography.urls')),
+    path('api/cart/', include('cart.urls')),
+    path('api/analytics/', include('analytics.urls')),
     
     # Frontend URLs
     path('', include('webapp.urls')),

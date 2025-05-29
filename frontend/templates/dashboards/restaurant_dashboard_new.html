@@ -1,0 +1,376 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Restaurant Dashboard - DeliveryPro{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/components/stats.css' %}">
+<link rel="stylesheet" href="{% static 'css/components/charts.css' %}">
+<link rel="stylesheet" href="{% static 'css/components/orders.css' %}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Dashboard Section -->
+<section id="dashboard-section" class="content-section">
+    <!-- Statistics Cards -->
+    {% include 'components/dashboard/stats.html' %}
+    
+    <!-- Charts Section -->
+    {% include 'components/dashboard/charts.html' %}
+    
+    <!-- Recent Orders Section -->
+    <div class="recent-section">
+        <div class="section-header">
+            <h3>Recent Orders</h3>
+            <a href="#" class="view-all-link" onclick="window.dashboardManager.showSection('orders')">
+                View All Orders
+                <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+        <div class="recent-orders-list" id="recent-orders-list">
+            <!-- Recent orders will be loaded here -->
+        </div>
+    </div>
+</section>
+
+<!-- Orders Section -->
+<section id="orders-section" class="content-section" style="display: none;">
+    {% include 'components/dashboard/orders.html' %}
+</section>
+
+<!-- Menu Management Section -->
+<section id="menu-section" class="content-section" style="display: none;">
+    <div class="section-header">
+        <h3>Menu Management</h3>
+        <div class="section-actions">
+            <button class="btn btn-primary" onclick="addMenuItem()">
+                <i class="fas fa-plus"></i>
+                Add Menu Item
+            </button>
+            <button class="btn btn-secondary" onclick="manageCategories()">
+                <i class="fas fa-folder"></i>
+                Manage Categories
+            </button>
+        </div>
+    </div>
+    
+    <div class="menu-container" id="menu-container">
+        <!-- Menu items will be loaded here -->
+    </div>
+</section>
+
+<!-- Analytics Section -->
+<section id="analytics-section" class="content-section" style="display: none;">
+    <div class="section-header">
+        <h3>Advanced Analytics</h3>
+        <div class="analytics-controls">
+            <select id="analytics-period" onchange="updateAnalyticsPeriod(this.value)">
+                <option value="week">Last 7 Days</option>
+                <option value="month" selected>Last 30 Days</option>
+                <option value="quarter">Last 3 Months</option>
+                <option value="year">Last Year</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="analytics-grid">
+        <!-- Detailed analytics charts will be here -->
+        <div class="analytics-card">
+            <h4>Revenue Analysis</h4>
+            <canvas id="detailed-revenue-chart"></canvas>
+        </div>
+        
+        <div class="analytics-card">
+            <h4>Customer Behavior</h4>
+            <canvas id="customer-behavior-chart"></canvas>
+        </div>
+        
+        <div class="analytics-card">
+            <h4>Peak Hours Analysis</h4>
+            <canvas id="peak-hours-detailed-chart"></canvas>
+        </div>
+        
+        <div class="analytics-card">
+            <h4>Menu Performance</h4>
+            <canvas id="menu-performance-chart"></canvas>
+        </div>
+    </div>
+</section>
+
+<!-- Reviews Section -->
+<section id="reviews-section" class="content-section" style="display: none;">
+    <div class="section-header">
+        <h3>Customer Reviews</h3>
+        <div class="reviews-stats">
+            <div class="stat-item">
+                <span class="stat-value" id="average-rating-display">0.0</span>
+                <span class="stat-label">Average Rating</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="total-reviews">0</span>
+                <span class="stat-label">Total Reviews</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="reviews-container" id="reviews-container">
+        <!-- Reviews will be loaded here -->
+    </div>
+</section>
+
+<!-- Promotions Section -->
+<section id="promotions-section" class="content-section" style="display: none;">
+    <div class="section-header">
+        <h3>Promotions & Offers</h3>
+        <button class="btn btn-primary" onclick="createPromotion()">
+            <i class="fas fa-plus"></i>
+            Create Promotion
+        </button>
+    </div>
+    
+    <div class="promotions-grid" id="promotions-grid">
+        <!-- Promotions will be loaded here -->
+    </div>
+</section>
+
+<!-- Restaurant Settings Section -->
+<section id="restaurant-section" class="content-section" style="display: none;">
+    <div class="section-header">
+        <h3>Restaurant Settings</h3>
+    </div>
+    
+    <div class="settings-container">
+        <div class="settings-card">
+            <h4>Basic Information</h4>
+            <form id="restaurant-info-form">
+                <div class="form-group">
+                    <label for="restaurant-name">Restaurant Name</label>
+                    <input type="text" id="restaurant-name" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="restaurant-description">Description</label>
+                    <textarea id="restaurant-description" class="form-input" rows="3"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="restaurant-address">Address</label>
+                    <textarea id="restaurant-address" class="form-input" rows="2"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="opening-time">Opening Time</label>
+                        <input type="time" id="opening-time" class="form-input">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="closing-time">Closing Time</label>
+                        <input type="time" id="closing-time" class="form-input">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    Save Changes
+                </button>
+            </form>
+        </div>
+        
+        <div class="settings-card">
+            <h4>Restaurant Image</h4>
+            <div class="image-upload">
+                <div class="current-image" id="current-restaurant-image">
+                    <!-- Current image will be displayed here -->
+                </div>
+                <input type="file" id="restaurant-image-input" accept="image/*" style="display: none;">
+                <button class="btn btn-secondary" onclick="document.getElementById('restaurant-image-input').click()">
+                    <i class="fas fa-camera"></i>
+                    Change Image
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/modules/charts.js' %}"></script>
+<script src="{% static 'js/modules/orders.js' %}"></script>
+<script src="{% static 'js/modules/menu.js' %}"></script>
+<script src="{% static 'js/modules/dashboard.js' %}"></script>
+{% endblock %}
+
+{% block js_init %}
+// Initialize dashboard
+window.dashboardManager = new DashboardManager();
+
+// Global functions for HTML onclick handlers
+window.addMenuItem = function() {
+    if (window.dashboardManager && window.dashboardManager.menuManager) {
+        window.dashboardManager.menuManager.showAddItemModal();
+    }
+};
+
+window.manageCategories = function() {
+    if (window.dashboardManager && window.dashboardManager.menuManager) {
+        window.dashboardManager.menuManager.showCategoriesModal();
+    }
+};
+
+window.createPromotion = function() {
+    console.log('Create promotion modal');
+    // Implementation for promotion creation
+};
+
+window.updateAnalyticsPeriod = function(period) {
+    if (window.dashboardManager) {
+        window.dashboardManager.filters.dateRange = period;
+        window.dashboardManager.loadAnalyticsData();
+    }
+};
+
+window.exportChartsData = function() {
+    if (window.dashboardManager && window.dashboardManager.chartManager) {
+        window.dashboardManager.chartManager.exportData();
+    }
+};
+
+window.updateChartsPeriod = function(period) {
+    if (window.dashboardManager && window.dashboardManager.chartManager) {
+        window.dashboardManager.chartManager.updatePeriod(period);
+    }
+};
+
+window.refreshOrders = function() {
+    if (window.dashboardManager && window.dashboardManager.orderManager) {
+        window.dashboardManager.orderManager.refresh();
+    }
+};
+
+window.setOrdersView = function(view) {
+    if (window.dashboardManager && window.dashboardManager.orderManager) {
+        window.dashboardManager.orderManager.setView(view);
+    }
+};
+
+window.filterOrders = function() {
+    if (window.dashboardManager && window.dashboardManager.orderManager) {
+        window.dashboardManager.orderManager.applyFilters();
+    }
+};
+
+window.searchOrders = function(query) {
+    if (window.dashboardManager && window.dashboardManager.orderManager) {
+        window.dashboardManager.orderManager.search(query);
+    }
+};
+
+window.clearOrdersFilters = function() {
+    if (window.dashboardManager && window.dashboardManager.orderManager) {
+        window.dashboardManager.orderManager.clearFilters();
+    }
+};
+
+window.toggleRestaurantStatus = function() {
+    if (window.dashboardManager) {
+        window.dashboardManager.toggleRestaurantStatus();
+    }
+};
+
+window.showNewOrderModal = function() {
+    console.log('Show new order modal');
+};
+
+window.navigateToMenu = function() {
+    if (window.dashboardManager) {
+        window.dashboardManager.showSection('menu');
+    }
+};
+
+window.viewAllOrders = function() {
+    if (window.dashboardManager) {
+        window.dashboardManager.showSection('orders');
+    }
+};
+
+window.showHourlyDetails = function() {
+    console.log('Show hourly details modal');
+};
+
+window.closeModal = function() {
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.style.display = 'none';
+    });
+};
+
+// Restaurant info form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const restaurantForm = document.getElementById('restaurant-info-form');
+    if (restaurantForm) {
+        restaurantForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!window.dashboardManager || !window.dashboardManager.currentRestaurant) {
+                window.App.notifications.error('No restaurant selected');
+                return;
+            }
+            
+            const formData = {
+                name: document.getElementById('restaurant-name').value,
+                description: document.getElementById('restaurant-description').value,
+                address: document.getElementById('restaurant-address').value,
+                opening_time: document.getElementById('opening-time').value,
+                closing_time: document.getElementById('closing-time').value
+            };
+            
+            try {
+                await window.App.api.updateRestaurant(window.dashboardManager.currentRestaurant, formData);
+                window.App.notifications.success('Restaurant information updated successfully');
+            } catch (error) {
+                console.error('Failed to update restaurant:', error);
+                window.App.notifications.error('Failed to update restaurant information');
+            }
+        });
+    }
+    
+    // Restaurant image upload
+    const imageInput = document.getElementById('restaurant-image-input');
+    if (imageInput) {
+        imageInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (!window.dashboardManager || !window.dashboardManager.currentRestaurant) {
+                window.App.notifications.error('No restaurant selected');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('logo', file);
+            
+            try {
+                await window.App.api.upload(
+                    `/restaurants/list/${window.dashboardManager.currentRestaurant}/`, 
+                    formData
+                );
+                window.App.notifications.success('Restaurant image updated successfully');
+                
+                // Update image preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const imageContainer = document.getElementById('current-restaurant-image');
+                    if (imageContainer) {
+                        imageContainer.innerHTML = `<img src="${e.target.result}" alt="Restaurant Image" class="restaurant-image-preview">`;
+                    }
+                };
+                reader.readAsDataURL(file);
+                
+            } catch (error) {
+                console.error('Failed to upload image:', error);
+                window.App.notifications.error('Failed to upload restaurant image');
+            }
+        });
+    }
+});
+{% endblock %}

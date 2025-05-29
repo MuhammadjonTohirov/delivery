@@ -197,6 +197,10 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         order.update_status('READY_FOR_PICKUP', request.user, notes=note)
 
+        # Auto-assign driver when order is ready for pickup
+        from .driver_assignment import assign_driver_to_order
+        assign_driver_to_order(order)
+
         serializer = self.get_serializer(order)
         return Response(serializer.data)
     
@@ -224,6 +228,11 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
         
         order.update_status('PREPARING', request.user, notes=note)
+        
+        # Auto-assign driver when order is ready for pickup
+        from .driver_assignment import assign_driver_to_order
+        if order.status == 'READY_FOR_PICKUP':
+            assign_driver_to_order(order)
         
         serializer = self.get_serializer(order)
         return Response(serializer.data)

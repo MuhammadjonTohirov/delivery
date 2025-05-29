@@ -41,6 +41,12 @@ INSTALLED_APPS = [
     'orders.apps.OrdersConfig',
     'drivers.apps.DriversConfig',
     'webapp.apps.WebappConfig',
+    'payments.apps.PaymentsConfig',
+    'promotions.apps.PromotionsConfig',
+    'notifications.apps.NotificationsConfig',
+    'geography.apps.GeographyConfig',
+    'cart.apps.CartConfig',
+    'analytics.apps.AnalyticsConfig',
 ]
 
 MIDDLEWARE = [

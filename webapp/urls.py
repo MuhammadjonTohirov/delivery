@@ -14,6 +14,7 @@ urlpatterns = [
     # Dashboard URLs
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('dashboard/restaurant/', views.restaurant_dashboard, name='restaurant_dashboard'),
+    path('dashboard/restaurant/new/', views.restaurant_dashboard_new, name='restaurant_dashboard_new'),
     path('dashboard/customer/', views.customer_dashboard, name='customer_dashboard'),
     path('dashboard/driver/', views.driver_dashboard, name='driver_dashboard'),
     

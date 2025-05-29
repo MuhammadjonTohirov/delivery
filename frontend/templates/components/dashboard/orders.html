@@ -1,0 +1,131 @@
+<div class="orders-section" id="orders-section">
+    <div class="section-header">
+        <div class="header-title">
+            <h3>Order Management</h3>
+            <p>Manage and track all your restaurant orders</p>
+        </div>
+        <div class="header-actions">
+            <button class="refresh-btn" onclick="refreshOrders()">
+                <i class="fas fa-sync-alt"></i>
+                Refresh
+            </button>
+            <div class="view-options">
+                <button class="view-btn active" data-view="list" onclick="setOrdersView('list')">
+                    <i class="fas fa-list"></i>
+                </button>
+                <button class="view-btn" data-view="grid" onclick="setOrdersView('grid')">
+                    <i class="fas fa-th-large"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Orders Filters -->
+    <div class="orders-filters">
+        <div class="filter-group">
+            <label for="status-filter">Status:</label>
+            <select id="status-filter" onchange="filterOrders()">
+                <option value="">All Statuses</option>
+                <option value="PLACED">Placed</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="PREPARING">Preparing</option>
+                <option value="READY_FOR_PICKUP">Ready for Pickup</option>
+                <option value="ON_THE_WAY">On the Way</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="CANCELLED">Cancelled</option>
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label for="date-filter">Date:</label>
+            <select id="date-filter" onchange="filterOrders()">
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="custom">Custom Range</option>
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label for="search-orders">Search:</label>
+            <input type="text" 
+                   id="search-orders" 
+                   placeholder="Search by order ID, customer name..."
+                   oninput="searchOrders(this.value)">
+        </div>
+        
+        <div class="filter-actions">
+            <button class="clear-filters-btn" onclick="clearOrdersFilters()">
+                Clear Filters
+            </button>
+        </div>
+    </div>
+    
+    <!-- Orders Stats Bar -->
+    <div class="orders-stats-bar">
+        <div class="stat-item">
+            <span class="stat-label">Total Orders:</span>
+            <span class="stat-value" id="orders-total">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Pending:</span>
+            <span class="stat-value pending" id="orders-pending">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">In Progress:</span>
+            <span class="stat-value in-progress" id="orders-in-progress">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Completed:</span>
+            <span class="stat-value completed" id="orders-completed">0</span>
+        </div>
+    </div>
+    
+    <!-- Orders List/Grid -->
+    <div class="orders-container">
+        <div class="orders-list" id="orders-list">
+            <!-- Orders will be loaded here -->
+        </div>
+        
+        <!-- Orders Pagination -->
+        <div class="orders-pagination" id="orders-pagination">
+            <!-- Pagination controls will be generated here -->
+        </div>
+    </div>
+    
+    <!-- Empty State -->
+    <div class="empty-state" id="orders-empty-state" style="display: none;">
+        <div class="empty-icon">
+            <i class="fas fa-clipboard-list"></i>
+        </div>
+        <h4>No Orders Found</h4>
+        <p>There are no orders matching your current filters.</p>
+        <button class="btn-primary" onclick="clearOrdersFilters()">
+            Clear Filters
+        </button>
+    </div>
+</div>
+
+<!-- Order Detail Modal Template (will be populated by JS) -->
+<div class="modal-template" id="order-detail-modal-template" style="display: none;">
+    <div class="modal-overlay">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Order Details</h3>
+                <button class="modal-close" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Order details will be populated here -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">Close</button>
+                <div class="order-actions">
+                    <!-- Action buttons will be populated based on order status -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

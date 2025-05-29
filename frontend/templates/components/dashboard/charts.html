@@ -1,0 +1,143 @@
+<div class="charts-section" id="charts-section">
+    <div class="charts-header">
+        <h3>Analytics Overview</h3>
+        <div class="charts-controls">
+            <div class="period-selector">
+                <select id="charts-period" onchange="updateChartsPeriod(this.value)">
+                    <option value="week">This Week</option>
+                    <option value="month" selected>This Month</option>
+                    <option value="quarter">This Quarter</option>
+                    <option value="year">This Year</option>
+                </select>
+            </div>
+            <button class="export-btn" onclick="exportChartsData()">
+                <i class="fas fa-download"></i>
+                Export Data
+            </button>
+        </div>
+    </div>
+    
+    <div class="charts-grid">
+        <!-- Revenue Chart -->
+        <div class="chart-container large">
+            <div class="chart-header">
+                <h4>Revenue Trend</h4>
+                <div class="chart-legend">
+                    <div class="legend-item">
+                        <span class="legend-color revenue"></span>
+                        <span class="legend-text">Revenue</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color target"></span>
+                        <span class="legend-text">Target</span>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-content">
+                <canvas id="revenue-chart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- Orders Chart -->
+        <div class="chart-container medium">
+            <div class="chart-header">
+                <h4>Orders by Status</h4>
+                <div class="chart-options">
+                    <button class="chart-option active" data-view="donut">Donut</button>
+                    <button class="chart-option" data-view="bar">Bar</button>
+                </div>
+            </div>
+            <div class="chart-content">
+                <canvas id="orders-status-chart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- Popular Items Chart -->
+        <div class="chart-container medium">
+            <div class="chart-header">
+                <h4>Popular Menu Items</h4>
+                <div class="chart-info">
+                    <i class="fas fa-info-circle" title="Top 5 most ordered items"></i>
+                </div>
+            </div>
+            <div class="chart-content">
+                <canvas id="popular-items-chart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- Peak Hours Chart -->
+        <div class="chart-container large">
+            <div class="chart-header">
+                <h4>Order Volume by Hour</h4>
+                <div class="chart-actions">
+                    <button class="chart-action" onclick="showHourlyDetails()">
+                        <i class="fas fa-expand"></i>
+                        Details
+                    </button>
+                </div>
+            </div>
+            <div class="chart-content">
+                <canvas id="peak-hours-chart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- Customer Growth Chart -->
+        <div class="chart-container medium">
+            <div class="chart-header">
+                <h4>Customer Growth</h4>
+                <div class="growth-stats">
+                    <div class="growth-item">
+                        <span class="growth-label">New</span>
+                        <span class="growth-value" id="new-customers">0</span>
+                    </div>
+                    <div class="growth-item">
+                        <span class="growth-label">Returning</span>
+                        <span class="growth-value" id="returning-customers">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-content">
+                <canvas id="customer-growth-chart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- Delivery Performance Chart -->
+        <div class="chart-container medium">
+            <div class="chart-header">
+                <h4>Delivery Performance</h4>
+                <div class="performance-indicator">
+                    <span class="indicator-label">Avg Delivery Time:</span>
+                    <span class="indicator-value" id="avg-delivery-time">--</span>
+                </div>
+            </div>
+            <div class="chart-content">
+                <canvas id="delivery-performance-chart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts Summary -->
+    <div class="charts-summary">
+        <div class="summary-card">
+            <h5>Key Insights</h5>
+            <div class="insights-list" id="insights-list">
+                <!-- Insights will be populated by JavaScript -->
+            </div>
+        </div>
+        
+        <div class="summary-card">
+            <h5>Recommendations</h5>
+            <div class="recommendations-list" id="recommendations-list">
+                <!-- Recommendations will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart Loading Overlay -->
+<div class="chart-loading" id="chart-loading" style="display: none;">
+    <div class="loading-content">
+        <i class="fas fa-chart-line fa-spin"></i>
+        <p>Loading chart data...</p>
+    </div>
+</div>
