@@ -115,7 +115,7 @@ class UserAuthenticationTests(APITestCase):
             password='testpassword',
             role='CUSTOMER'
         )
-        CustomerProfile.objects.create(user=self.user)
+        CustomerProfile.objects.get_or_create(user=self.user)
         
     def test_login(self):
         """
@@ -179,10 +179,9 @@ class UserProfileTests(APITestCase):
             password='testpassword',
             role='CUSTOMER'
         )
-        self.customer_profile = CustomerProfile.objects.create(
-            user=self.user,
-            default_address='123 Test St, Test City'
-        )
+        self.customer_profile, _ = CustomerProfile.objects.get_or_create(user=self.user)
+        self.customer_profile.default_address = '123 Test St, Test City'
+        self.customer_profile.save()
         
         self.driver = CustomUser.objects.create_user(
             email='driver@example.com',
@@ -190,11 +189,10 @@ class UserProfileTests(APITestCase):
             password='testpassword',
             role='DRIVER'
         )
-        self.driver_profile = DriverProfile.objects.create(
-            user=self.driver,
-            vehicle_type='Car',
-            license_number='DL12345'
-        )
+        self.driver_profile, _ = DriverProfile.objects.get_or_create(user=self.driver)
+        self.driver_profile.vehicle_type = 'Car'
+        self.driver_profile.license_number = 'DL12345'
+        self.driver_profile.save()
         
         # Login as the customer
         url = reverse('users:token_obtain_pair')
