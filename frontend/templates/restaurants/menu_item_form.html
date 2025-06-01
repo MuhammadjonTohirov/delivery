@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadCategories(selectedCategoryId = null) {
         if (!myRestaurantId) return;
         
-        fetchAPI(`/api/categories/?restaurant=${myRestaurantId}`)
+        fetchAPI(`/api/restaurants/categories/?restaurant=${myRestaurantId}`)
             .then(data => {
                 const categories = data.results || data;
                 itemCategorySelect.innerHTML = '<option value="">Select a category...</option>';
@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
     function loadMenuItemData(itemId) {
-        fetchAPI(`/api/menu-items/${itemId}/`)
+        fetchAPI(`/api/restaurants/menu-items/${itemId}/`)
             .then(data => {
                 itemNameInput.value = data.name || '';
                 itemDescriptionInput.value = data.description || '';
@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add restaurant ID
         formData.append('restaurant', myRestaurantId);
 
-        let url = '/api/menu-items/';
+        let url = '/api/restaurants/menu-items/';
         let method = 'POST';
 
         if (isEditMode) {
