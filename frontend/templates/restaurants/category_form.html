@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function loadCategoryData(categoryId) {
-        fetchAPI(`/api/categories/${categoryId}/`)
+        fetchAPI(`/api/restaurants/categories/${categoryId}/`)
             .then(data => {
                 categoryNameInput.value = data.name || '';
                 categoryDescriptionInput.value = data.description || '';
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
             restaurant: myRestaurantId
         };
 
-        let url = '/api/categories/';
+        let url = '/api/restaurants/categories/';
         let method = 'POST';
 
         if (isEditMode) {

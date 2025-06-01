@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Delete category
     function deleteCategory(categoryId, categoryName) {
         if (confirmAction(`Are you sure you want to delete the category "${categoryName}" and all its items?`)) {
-            fetchAPI(`/api/categories/${categoryId}/`, 'DELETE')
+            fetchAPI(`/api/restaurants/categories/${categoryId}/`, 'DELETE')
                 .then(() => {
                     showToast(`Category "${categoryName}" deleted successfully.`);
                     loadMenuData();
@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Delete menu item
     function deleteMenuItem(itemId, itemName) {
         if (confirmAction(`Are you sure you want to delete the menu item "${itemName}"?`)) {
-            fetchAPI(`/api/menu-items/${itemId}/`, 'DELETE')
+            fetchAPI(`/api/restaurants/menu-items/${itemId}/`, 'DELETE')
                 .then(() => {
                     showToast(`Menu item "${itemName}" deleted successfully.`);
                     loadMenuData();
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Toggle item availability
     function toggleItemAvailability(itemId, itemName, currentStatus) {
         const newStatus = !currentStatus;
-        fetchAPI(`/api/menu-items/${itemId}/`, 'PATCH', {
+        fetchAPI(`/api/restaurants/menu-items/${itemId}/`, 'PATCH', {
             is_available: newStatus
         })
         .then(() => {
@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Toggle item featured status
     function toggleItemFeatured(itemId, itemName, currentStatus) {
         const newStatus = !currentStatus;
-        fetchAPI(`/api/menu-items/${itemId}/`, 'PATCH', {
+        fetchAPI(`/api/restaurants/menu-items/${itemId}/`, 'PATCH', {
             is_featured: newStatus
         })
         .then(() => {
@@ -200,7 +200,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Toggle category active status
     function toggleCategoryActive(categoryId, categoryName, currentStatus) {
         const newStatus = !currentStatus;
-        fetchAPI(`/api/categories/${categoryId}/`, 'PATCH', {
+        fetchAPI(`/api/restaurants/categories/${categoryId}/`, 'PATCH', {
             is_active: newStatus
         })
         .then(() => {
@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Update each category with its new order
             Promise.all(newOrder.map(item => 
-                fetchAPI(`/api/categories/${item.id}/`, 'PATCH', { order: item.order })
+                fetchAPI(`/api/restaurants/categories/${item.id}/`, 'PATCH', { order: item.order })
             ))
             .then(() => {
                 showToast('Category order updated successfully.');
