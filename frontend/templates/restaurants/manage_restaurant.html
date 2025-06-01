@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load restaurant data
     function loadRestaurantData() {
-        fetchAPI('/api/restaurants/mine/')
+        fetchAPI('/api/restaurants/list/mine/')
             .then(data => {
                 if (data && data.id) {
                     restaurantId = data.id;

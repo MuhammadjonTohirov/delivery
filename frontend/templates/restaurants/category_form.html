@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Get Restaurant ID first
-    fetchAPI('/api/restaurants/mine/')
+    fetchAPI('/api/restaurants/list/mine/')
         .then(restaurantData => {
             if (restaurantData && restaurantData.id) {
                 myRestaurantId = restaurantData.id;

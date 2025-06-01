@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Get Restaurant ID first, then load categories and item data if editing
-    fetchAPI('/api/restaurants/mine/')
+    fetchAPI('/api/restaurants/list/mine/')
         .then(restaurantData => {
             if (restaurantData && restaurantData.id) {
                 myRestaurantId = restaurantData.id;

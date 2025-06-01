@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!myRestaurantId) {
             // Get restaurant ID first
-            fetchAPI('/api/restaurants/mine/')
+            fetchAPI('/api/restaurants/list/mine/')
                 .then(restaurantData => {
                     if (restaurantData && restaurantData.id) {
                         myRestaurantId = restaurantData.id;

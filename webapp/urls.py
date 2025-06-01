@@ -24,6 +24,7 @@ urlpatterns = [
     # Restaurant management
     path('restaurant/orders/', views.restaurant_orders_view, name='restaurant_orders'),
     path('restaurant/menu/', views.restaurant_menu_view, name='menu_management'),
+    path('restaurant/menu-page/', views.restaurant_menu_view, name='restaurant_menu'),
     path('restaurant/manage/', views.restaurant_manage_view, name='manage_restaurant'),
     path('restaurant/category/add/', views.category_form_view, name='category_form'),
     path('restaurant/category/edit/<uuid:category_id>/', views.category_form_view, name='category_form_edit'),

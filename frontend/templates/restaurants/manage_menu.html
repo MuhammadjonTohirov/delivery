@@ -444,7 +444,7 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         // First, get the restaurant ID for the current owner
-        fetchAPI('/api/restaurants/mine/')
+        fetchAPI('/api/restaurants/list/mine/')
             .then(restaurantData => {
                 if (restaurantData && restaurantData.id) {
                     myRestaurantId = restaurantData.id;
