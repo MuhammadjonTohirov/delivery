@@ -365,6 +365,44 @@ class APIManager {
         return this.get('/restaurants/categories/', params);
     }
 
+    async getMenuCategory(id) {
+        return this.get(`/restaurants/categories/${id}/`);
+    }
+
+    async createMenuCategory(data) {
+        return this.post('/restaurants/categories/', data);
+    }
+
+    async updateMenuCategory(id, data) {
+        return this.patch(`/restaurants/categories/${id}/`, data);
+    }
+
+    async deleteMenuCategory(id) {
+        return this.delete(`/restaurants/categories/${id}/`);
+    }
+
+    // Restaurant Settings API Methods
+    async getRestaurantSettings() {
+        const settings = localStorage.getItem('restaurantSettings');
+        return settings ? JSON.parse(settings) : {};
+    }
+
+    async saveRestaurantSettings(settings) {
+        localStorage.setItem('restaurantSettings', JSON.stringify(settings));
+        return settings;
+    }
+
+    async setPrimaryRestaurant(restaurantId) {
+        const settings = await this.getRestaurantSettings();
+        settings.primaryRestaurant = restaurantId;
+        return this.saveRestaurantSettings(settings);
+    }
+
+    async getPrimaryRestaurant() {
+        const settings = await this.getRestaurantSettings();
+        return settings.primaryRestaurant || null;
+    }
+
     // Reviews API Methods
     async getRestaurantReviews(restaurantId) {
         return this.get(`/restaurants/list/${restaurantId}/reviews/`);

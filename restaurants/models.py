@@ -28,10 +28,14 @@ class MenuCategory(models.Model):
     name = models.CharField(max_length=50)
     description = models.TextField(blank=True, null=True)
     order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         verbose_name_plural = 'Menu Categories'
         ordering = ['order', 'name']
+        unique_together = ['restaurant', 'name']
     
     def __str__(self):
         return f"{self.restaurant.name} - {self.name}"
@@ -48,8 +52,14 @@ class MenuItem(models.Model):
     is_available = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
     preparation_time = models.PositiveIntegerField(help_text='Preparation time in minutes', null=True, blank=True)
+    ingredients = models.TextField(blank=True, null=True, help_text='List of ingredients')
+    allergens = models.TextField(blank=True, null=True, help_text='Allergen information')
+    calories = models.PositiveIntegerField(null=True, blank=True, help_text='Calorie count')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['category__order', 'name']
     
     def __str__(self):
         return f"{self.restaurant.name} - {self.name}"
@@ -68,4 +78,4 @@ class RestaurantReview(models.Model):
         unique_together = ('restaurant', 'user')
     
     def __str__(self):
-        return f"{self.restaurant.name} - {self.rating} stars by {self.user.full_name}"
+        return f"{self.restaurant.name} - {self.rating} stars by {self.user.username}"

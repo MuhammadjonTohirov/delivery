@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
@@ -10,7 +10,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 import json
 
 from users.models import CustomUser
-from restaurants.models import Restaurant
+from restaurants.models import Restaurant, MenuCategory, MenuItem
 from orders.models import Order
 
 
@@ -70,7 +70,7 @@ class RestaurantDashboardView(LoginRequiredMixin, TemplateView):
     """
     Restaurant dashboard view
     """
-    template_name = 'dashboards/restaurant_dashboard_new.html'
+    template_name = 'dashboards/modern_restaurant_dashboard.html'
     
     def dispatch(self, request, *args, **kwargs):
         if not request.user.role == 'RESTAURANT':
@@ -214,15 +214,115 @@ def restaurant_menu_view(request):
     
     try:
         restaurant = request.user.restaurant
-        menu_items = restaurant.menu_items.all().order_by('category', 'name')
-        categories = restaurant.menu_categories.all().order_by('order', 'name')
+        
+        # Check for success message in query params
+        success_message = request.GET.get('success')
+        if success_message:
+            messages.success(request, success_message)
         
         context = {
             'restaurant': restaurant,
-            'menu_items': menu_items,
-            'categories': categories,
+            'form_type': 'Manage Menu',
         }
         return render(request, 'restaurants/manage_menu.html', context)
+    
+    except AttributeError:
+        messages.error(request, 'No restaurant profile found.')
+        return redirect('webapp:restaurant_dashboard')
+
+
+@login_required
+def restaurant_manage_view(request):
+    """
+    Restaurant profile management view
+    """
+    if request.user.role != 'RESTAURANT':
+        messages.error(request, 'Access denied.')
+        return redirect('webapp:home')
+    
+    try:
+        restaurant = request.user.restaurant
+        
+        # Check for success message in query params
+        success_message = request.GET.get('success')
+        if success_message:
+            messages.success(request, success_message)
+        
+        context = {
+            'restaurant': restaurant,
+            'form_type': 'Manage Restaurant',
+        }
+        return render(request, 'restaurants/manage_restaurant.html', context)
+    
+    except AttributeError:
+        messages.error(request, 'No restaurant profile found.')
+        return redirect('webapp:restaurant_dashboard')
+
+
+@login_required
+def category_form_view(request, category_id=None):
+    """
+    Menu category form view for adding/editing categories
+    """
+    if request.user.role != 'RESTAURANT':
+        messages.error(request, 'Access denied.')
+        return redirect('webapp:home')
+    
+    try:
+        restaurant = request.user.restaurant
+        
+        # Determine if we're editing or creating
+        if category_id:
+            category = get_object_or_404(MenuCategory, id=category_id, restaurant=restaurant)
+            form_type = 'Edit Category'
+        else:
+            category = None
+            form_type = 'Add New Category'
+        
+        context = {
+            'restaurant': restaurant,
+            'category': category,
+            'category_id': category_id,
+            'form_type': form_type,
+        }
+        return render(request, 'restaurants/category_form.html', context)
+    
+    except AttributeError:
+        messages.error(request, 'No restaurant profile found.')
+        return redirect('webapp:restaurant_dashboard')
+
+
+@login_required
+def menu_item_form_view(request, item_id=None):
+    """
+    Menu item form view for adding/editing menu items
+    """
+    if request.user.role != 'RESTAURANT':
+        messages.error(request, 'Access denied.')
+        return redirect('webapp:home')
+    
+    try:
+        restaurant = request.user.restaurant
+        
+        # Determine if we're editing or creating
+        if item_id:
+            menu_item = get_object_or_404(MenuItem, id=item_id, restaurant=restaurant)
+            form_type = 'Edit Menu Item'
+            category_id = menu_item.category.id if menu_item.category else None
+        else:
+            menu_item = None
+            form_type = 'Add New Menu Item'
+            # Check if a category was specified in the query params
+            category_id = request.GET.get('category')
+        
+        context = {
+            'restaurant': restaurant,
+            'menu_item': menu_item,
+            'item_id': item_id,
+            'category_id': category_id,
+            'form_type': form_type,
+        }
+        return render(request, 'restaurants/menu_item_form.html', context)
     
     except AttributeError:
         messages.error(request, 'No restaurant profile found.')

@@ -4,83 +4,212 @@
 
 {% block content %}
 <div class="container">
-    <h2>Manage My Restaurant</h2>
-    <p>Update your restaurant's information, opening hours, and other settings.</p>
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Manage My Restaurant</h2>
+            <p class="text-muted">Update your restaurant's information, opening hours, and other settings.</p>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'webapp:menu_management' %}" class="btn btn-primary">
+                <i class="fas fa-utensils"></i> Manage Menu
+            </a>
+        </div>
+    </div>
 
-    <form id="manage-restaurant-form" class="mt-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Restaurant Details</h5>
-                
-                <div class="mb-3">
-                    <label for="restaurantName" class="form-label">Restaurant Name</label>
-                    <input type="text" class="form-control" id="restaurantName" name="name" required>
-                </div>
-                <div class="mb-3">
-                    <label for="restaurantAddress" class="form-label">Address</label>
-                    <textarea class="form-control" id="restaurantAddress" name="address" rows="2" required></textarea>
-                </div>
-                <div class="mb-3">
-                    <label for="restaurantDescription" class="form-label">Description</label>
-                    <textarea class="form-control" id="restaurantDescription" name="description" rows="3"></textarea>
-                </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="restaurantLocationLat" class="form-label">Latitude</label>
-                        <input type="number" step="any" class="form-control" id="restaurantLocationLat" name="location_lat">
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label for="restaurantLocationLng" class="form-label">Longitude</label>
-                        <input type="number" step="any" class="form-control" id="restaurantLocationLng" name="location_lng">
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label for="restaurantLogo" class="form-label">Logo Image</label>
-                    <input type="file" class="form-control" id="restaurantLogo" name="logo" accept="image/*">
-                    <small class="form-text text-muted">Leave blank to keep current logo. New logo will replace the old one.</small>
-                    <div id="current-logo-container" class="mt-2">
-                        <img id="current-logo-img" src="#" alt="Current Logo" style="max-height: 100px; display: none;">
-                    </div>
-                </div>
+    <!-- Success message -->
+    <div id="success-alert" class="alert alert-success alert-dismissible fade show d-none" role="alert">
+        <span id="success-message"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
 
-                <h5 class="card-title mt-4">Operational Settings</h5>
-                <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" id="restaurantIsOpen" name="is_open">
-                    <label class="form-check-label" for="restaurantIsOpen">
-                        Restaurant is currently open
-                    </label>
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <form id="manage-restaurant-form" class="needs-validation" novalidate enctype="multipart/form-data">
+                        <h5 class="card-title border-bottom pb-2 mb-4">Restaurant Details</h5>
+                        
+                        <div class="mb-3">
+                            <label for="restaurantName" class="form-label">Restaurant Name</label>
+                            <input type="text" class="form-control" id="restaurantName" name="name" required>
+                            <div class="invalid-feedback">Please provide a restaurant name.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="restaurantAddress" class="form-label">Address</label>
+                            <textarea class="form-control" id="restaurantAddress" name="address" rows="2" required></textarea>
+                            <div class="invalid-feedback">Please provide your restaurant address.</div>
+                            <div class="form-text">Enter the full address including street, city, state, and zip code.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="restaurantDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="restaurantDescription" name="description" rows="3"></textarea>
+                            <div class="form-text">Describe your restaurant, cuisine type, specialties, etc.</div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="restaurantLocationLat" class="form-label">Latitude</label>
+                                <input type="number" step="any" class="form-control" id="restaurantLocationLat" name="location_lat">
+                                <div class="form-text">Optional: For precise location on maps.</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="restaurantLocationLng" class="form-label">Longitude</label>
+                                <input type="number" step="any" class="form-control" id="restaurantLocationLng" name="location_lng">
+                                <div class="form-text">Optional: For precise location on maps.</div>
+                            </div>
+                        </div>
+                        
+                        <h5 class="card-title border-bottom pb-2 mb-4 mt-5">Operational Settings</h5>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="restaurantIsOpen" name="is_open">
+                            <label class="form-check-label" for="restaurantIsOpen">
+                                Restaurant is currently open
+                            </label>
+                            <div class="form-text">Toggle this when you open or close your restaurant.</div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="restaurantOpeningTime" class="form-label">Opening Time</label>
+                                <input type="time" class="form-control" id="restaurantOpeningTime" name="opening_time">
+                                <div class="form-text">Regular opening hours.</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="restaurantClosingTime" class="form-label">Closing Time</label>
+                                <input type="time" class="form-control" id="restaurantClosingTime" name="closing_time">
+                                <div class="form-text">Regular closing hours.</div>
+                            </div>
+                        </div>
+                        
+                        <div id="form-errors" class="alert alert-danger d-none mb-3"></div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Changes
+                            </button>
+                        </div>
+                    </form>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="restaurantOpeningTime" class="form-label">Opening Time</label>
-                        <input type="time" class="form-control" id="restaurantOpeningTime" name="opening_time">
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label for="restaurantClosingTime" class="form-label">Closing Time</label>
-                        <input type="time" class="form-control" id="restaurantClosingTime" name="closing_time">
-                    </div>
-                </div>
-                
-                <button type="submit" class="btn btn-primary">Save Changes</button>
             </div>
         </div>
-    </form>
+        
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title border-bottom pb-2 mb-4">Restaurant Logo</h5>
+                    
+                    <div id="current-logo-container" class="text-center mb-3">
+                        <img id="current-logo-img" src="#" alt="Restaurant Logo" class="img-thumbnail" style="max-height: 200px; display: none;">
+                        <div id="no-logo-placeholder" class="py-5 bg-light rounded text-center">
+                            <i class="fas fa-store fa-3x text-muted"></i>
+                            <p class="mt-2 text-muted">No logo uploaded</p>
+                        </div>
+                    </div>
+                    
+                    <form id="logo-form" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="restaurantLogo" class="form-label">Upload Logo</label>
+                            <input type="file" class="form-control" id="restaurantLogo" name="logo" accept="image/*">
+                            <div class="form-text">Recommended size: 400x400 pixels. Max size: 5MB.</div>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-outline-primary">
+                                <i class="fas fa-upload"></i> Update Logo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Quick Stats</h5>
+                </div>
+                <div class="card-body">
+                    <div id="stats-loading" class="text-center py-4">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading stats...</p>
+                    </div>
+                    
+                    <div id="stats-container" class="d-none">
+                        <div class="row g-0 text-center mb-3">
+                            <div class="col-6 border-end">
+                                <div class="p-3">
+                                    <h6 class="text-muted mb-1">Menu Items</h6>
+                                    <h4 id="total-menu-items">0</h4>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-3">
+                                    <h6 class="text-muted mb-1">Categories</h6>
+                                    <h4 id="total-categories">0</h4>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-0 text-center">
+                            <div class="col-6 border-end border-top">
+                                <div class="p-3">
+                                    <h6 class="text-muted mb-1">Total Orders</h6>
+                                    <h4 id="total-orders">0</h4>
+                                </div>
+                            </div>
+                            <div class="col-6 border-top">
+                                <div class="p-3">
+                                    <h6 class="text-muted mb-1">Completed</h6>
+                                    <h4 id="completed-orders">0</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-white">
+                    <a href="{% url 'webapp:restaurant_dashboard' %}" class="btn btn-sm btn-outline-primary d-block">
+                        <i class="fas fa-chart-line"></i> View Full Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const manageRestaurantForm = document.getElementById('manage-restaurant-form');
+    const logoForm = document.getElementById('logo-form');
+    const currentLogoImg = document.getElementById('current-logo-img');
+    const noLogoPlaceholder = document.getElementById('no-logo-placeholder');
+    const formErrorsEl = document.getElementById('form-errors');
+    const successAlert = document.getElementById('success-alert');
+    const successMessage = document.getElementById('success-message');
+    const statsContainer = document.getElementById('stats-container');
+    const statsLoading = document.getElementById('stats-loading');
+    
     const accessToken = localStorage.getItem('accessToken');
+    let restaurantId = null;
+
     if (!accessToken) {
         window.location.href = "{% url 'webapp:login' %}?next=" + window.location.pathname;
         return;
     }
 
-    const manageRestaurantForm = document.getElementById('manage-restaurant-form');
-    const currentLogoImg = document.getElementById('current-logo-img');
-    const currentLogoContainer = document.getElementById('current-logo-container');
-    let restaurantId = null; // Will be fetched
+    // Check for success message in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const successMsg = urlParams.get('success');
+    if (successMsg) {
+        successMessage.textContent = successMsg;
+        successAlert.classList.remove('d-none');
+        // Remove the success parameter from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     function fetchAPI(endpoint, method = 'GET', body = null, isFormData = false) {
         const headers = {};
@@ -90,86 +219,96 @@ document.addEventListener('DOMContentLoaded', function() {
         headers['Authorization'] = `Bearer ${accessToken}`;
         
         const config = { method: method, headers: headers };
-        if (body) config.body = body; // body will be FormData or JSON.stringify(body)
+        if (body) config.body = body;
         
         return fetch(endpoint, config).then(response => {
             if (!response.ok) return response.json().then(err => { throw err; });
             return response.status === 204 ? null : response.json();
         });
     }
-    
-    // Function to get the user's restaurant ID first from their profile
-    function getMyRestaurantIdAndLoadData() {
-        fetchAPI('/api/users/profile/') // Assuming this returns the user's restaurant ID if they are an owner
-            .then(profileData => {
-                if (profileData.role === 'RESTAURANT' && profileData.restaurant_profile && profileData.restaurant_profile.id) {
-                    // The user profile serializer needs to expose the restaurant ID.
-                    // Let's assume the restaurant ID is directly on the user.restaurant object from the backend.
-                    // This part depends on how your UserSerializer exposes the related restaurant ID.
-                    // A common way is to have a restaurant field on the user model or a direct link.
-                    // For now, I'll assume the restaurant ID is available via a dedicated endpoint or user profile.
-                    // If not, the RestaurantSerializer on user profile needs to include the restaurant ID.
-                    // Let's try to fetch the restaurant directly assuming the user has one.
-                    // A better approach would be a dedicated endpoint like /api/restaurants/my-restaurant/
-                    
-                    // Attempt to find the restaurant associated with the user.
-                    // This is a placeholder. In a real app, you'd have a reliable way to get the user's restaurant.
-                    // For instance, the user profile endpoint could return the ID of their restaurant.
-                    // Or, you might have a dedicated endpoint like `/api/restaurants/mine/`
-                    
-                    // Let's assume the user's profile includes their restaurant's ID.
-                    // The `UserSerializer` in `users/serializers.py` would need to be updated
-                    // to include `restaurant_id = serializers.ReadOnlyField(source='restaurant.id')`
-                    // if the `CustomUser` model has a `restaurant` one-to-one field.
-                    // Given the current models, `Restaurant` has a `user` field.
-                    // So, we'd fetch all restaurants and filter by user, or have a dedicated endpoint.
-                    // For simplicity, I'll assume we can get the restaurant ID from the user's profile.
-                    // This is a common pattern. If `user.restaurant` is the related Restaurant object:
-                    // The UserSerializer should expose `restaurant.id`.
-                    // Let's assume `profileData.restaurant.id` exists.
-                    // This is a simplification. The UserSerializer needs to provide this.
-                    // A more robust way: fetch restaurants and filter by user.id, or a dedicated endpoint.
-                    // For now, let's assume the user profile endpoint gives us the restaurant ID.
-                    // The `Restaurant` model has `user = models.OneToOneField(settings.AUTH_USER_MODEL, ...)`
-                    // So, `user.restaurant` should give the restaurant.
-                    // The `UserSerializer` should include a nested `RestaurantSerializer` or just its ID.
-                    // The current `UserSerializer` does not directly expose the restaurant ID.
-                    // Let's modify the logic to fetch the restaurant via a query if not directly available.
-                    
-                    // A practical way: The RestaurantViewSet's list endpoint can be filtered by `user=request.user.id`
-                    // Or a custom action on RestaurantViewSet: `/api/restaurants/mine/`
-                    // For now, let's assume we get the restaurant ID from the user's profile.
-                    // This requires `UserSerializer` to provide `restaurant_id`.
-                    // If `user.restaurant` is the related object:
-                    // `restaurant_id = serializers.CharField(source='restaurant.id', read_only=True)` in UserSerializer.
-                    // Let's assume this is done.
-                    
-                    // A more direct way for a restaurant owner to get their restaurant:
-                    // Create a custom action in RestaurantViewSet:
-                    // @action(detail=False, methods=['get'], permission_classes=[IsRestaurantOwner])
-                    // def mine(self, request):
-                    //    serializer = self.get_serializer(request.user.restaurant)
-                    //    return Response(serializer.data)
-                    // Then fetch from `/api/restaurants/mine/`
-                    
-                    // Using the "mine" endpoint approach:
-                    return fetchAPI('/api/restaurants/mine/'); // Assuming this endpoint exists
+
+    function showError(message) {
+        formErrorsEl.innerHTML = message;
+        formErrorsEl.classList.remove('d-none');
+    }
+
+    function hideError() {
+        formErrorsEl.innerHTML = '';
+        formErrorsEl.classList.add('d-none');
+    }
+
+    function showSuccess(message) {
+        successMessage.textContent = message;
+        successAlert.classList.remove('d-none');
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            successAlert.classList.add('d-none');
+        }, 5000);
+    }
+
+    // Preview logo when selected
+    document.getElementById('restaurantLogo').addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentLogoImg.src = e.target.result;
+                currentLogoImg.style.display = 'block';
+                noLogoPlaceholder.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Load restaurant data
+    function loadRestaurantData() {
+        fetchAPI('/api/restaurants/mine/')
+            .then(data => {
+                if (data && data.id) {
+                    restaurantId = data.id;
+                    populateForm(data);
+                    loadRestaurantStats(data.id);
                 } else {
-                    throw new Error("User is not a restaurant owner or restaurant ID not found in profile.");
+                    throw new Error("Could not identify your restaurant.");
                 }
             })
-            .then(restaurantData => {
-                restaurantId = restaurantData.id;
-                populateForm(restaurantData);
-            })
             .catch(error => {
-                console.error("Error fetching user's restaurant:", error);
-                alert("Could not load your restaurant data. " + (error.detail || error.message || "Ensure you are registered as a restaurant owner."));
-                // Optionally redirect or disable form
+                console.error("Error fetching restaurant data:", error);
+                showError("Could not load your restaurant data. " + (error.detail || error.message || "Ensure you are registered as a restaurant owner."));
                 manageRestaurantForm.innerHTML = '<p class="text-danger">Could not load restaurant data.</p>';
             });
     }
 
+    // Load restaurant statistics
+    function loadRestaurantStats(id) {
+        fetchAPI(`/api/statistics/${id}/get/`)
+            .then(data => {
+                // Update stats display
+                document.getElementById('total-menu-items').textContent = data.total_menu_items || 0;
+                document.getElementById('total-categories').textContent = data.total_categories || 0;
+                document.getElementById('total-orders').textContent = data.total_orders || 0;
+                
+                // Calculate completed orders
+                const completedOrders = data.orders_by_status && data.orders_by_status.DELIVERED 
+                    ? data.orders_by_status.DELIVERED 
+                    : 0;
+                document.getElementById('completed-orders').textContent = completedOrders;
+                
+                // Show stats container
+                statsLoading.classList.add('d-none');
+                statsContainer.classList.remove('d-none');
+            })
+            .catch(error => {
+                console.error("Error loading restaurant stats:", error);
+                statsLoading.innerHTML = `
+                    <div class="text-center py-3">
+                        <i class="fas fa-exclamation-circle text-warning"></i>
+                        <p class="text-muted mt-2">Could not load statistics</p>
+                    </div>
+                `;
+            });
+    }
 
     function populateForm(data) {
         document.getElementById('restaurantName').value = data.name || '';
@@ -184,62 +323,120 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data.logo) {
             currentLogoImg.src = data.logo;
             currentLogoImg.style.display = 'block';
+            noLogoPlaceholder.style.display = 'none';
         } else {
             currentLogoImg.style.display = 'none';
+            noLogoPlaceholder.style.display = 'block';
         }
     }
 
+    // Handle main restaurant form submission
     manageRestaurantForm.addEventListener('submit', function(event) {
         event.preventDefault();
+        hideError();
+        
+        // Form validation
+        if (!manageRestaurantForm.checkValidity()) {
+            event.stopPropagation();
+            manageRestaurantForm.classList.add('was-validated');
+            return;
+        }
+        
         if (!restaurantId) {
-            alert("Restaurant ID not found. Cannot update.");
+            showError("Restaurant ID not found. Cannot update.");
             return;
         }
 
-        const formData = new FormData(manageRestaurantForm);
-        // For file uploads, you don't stringify, and Content-Type is handled by browser
+        const formData = new FormData();
         
-        // API expects PATCH for updates. If creating, it would be POST.
-        // The RestaurantViewSet should handle PATCH for partial updates.
-        // If logo is not provided, it should not be cleared by the backend unless explicitly set to null.
-        // DRF handles file uploads with FormData correctly.
+        // Add form fields to FormData
+        formData.append('name', document.getElementById('restaurantName').value);
+        formData.append('address', document.getElementById('restaurantAddress').value);
+        formData.append('description', document.getElementById('restaurantDescription').value);
+        
+        const lat = document.getElementById('restaurantLocationLat').value;
+        const lng = document.getElementById('restaurantLocationLng').value;
+        if (lat) formData.append('location_lat', lat);
+        if (lng) formData.append('location_lng', lng);
+        
+        formData.append('is_open', document.getElementById('restaurantIsOpen').checked);
+        
+        const openingTime = document.getElementById('restaurantOpeningTime').value;
+        const closingTime = document.getElementById('restaurantClosingTime').value;
+        if (openingTime) formData.append('opening_time', openingTime);
+        if (closingTime) formData.append('closing_time', closingTime);
 
-        fetchAPI(`/api/restaurants/${restaurantId}/`, 'PATCH', formData, true) // true for FormData
+        fetchAPI(`/api/restaurants/${restaurantId}/`, 'PATCH', formData, true)
             .then(updatedData => {
-                alert('Restaurant details updated successfully!');
-                populateForm(updatedData); // Refresh form with new data (especially if logo URL changes)
+                showSuccess('Restaurant details updated successfully!');
+                populateForm(updatedData);
             })
             .catch(error => {
                 console.error('Error updating restaurant:', error);
-                let errorMessage = 'Failed to update restaurant.\n';
-                 if (typeof error === 'object' && error !== null) {
+                
+                let errorMessage = '';
+                if (typeof error === 'object' && error !== null) {
                     for (const key in error) {
-                        errorMessage += `${key}: ${Array.isArray(error[key]) ? error[key].join(', ') : error[key]}\n`;
+                        const fieldName = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+                        const errorText = Array.isArray(error[key]) ? error[key].join(', ') : error[key];
+                        errorMessage += `<p><strong>${fieldName}:</strong> ${errorText}</p>`;
                     }
                 } else {
-                    errorMessage += error;
+                    errorMessage = error.toString();
                 }
-                alert(errorMessage.trim());
+                
+                showError(errorMessage);
+            });
+    });
+
+    // Handle logo form submission
+    logoForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        if (!restaurantId) {
+            showError("Restaurant ID not found. Cannot update logo.");
+            return;
+        }
+
+        const logoFile = document.getElementById('restaurantLogo').files[0];
+        if (!logoFile) {
+            showError("Please select a logo image to upload.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('logo', logoFile);
+
+        fetchAPI(`/api/restaurants/${restaurantId}/`, 'PATCH', formData, true)
+            .then(updatedData => {
+                showSuccess('Restaurant logo updated successfully!');
+                
+                // Update logo display
+                if (updatedData.logo) {
+                    currentLogoImg.src = updatedData.logo;
+                    currentLogoImg.style.display = 'block';
+                    noLogoPlaceholder.style.display = 'none';
+                }
+                
+                // Reset file input
+                logoForm.reset();
+            })
+            .catch(error => {
+                console.error('Error updating logo:', error);
+                
+                let errorMessage = '';
+                if (typeof error === 'object' && error !== null && error.logo) {
+                    errorMessage = `<p><strong>Logo:</strong> ${Array.isArray(error.logo) ? error.logo.join(', ') : error.logo}</p>`;
+                } else {
+                    errorMessage = 'Failed to update logo. Please try again.';
+                }
+                
+                showError(errorMessage);
             });
     });
 
     // Initial load of restaurant data
-    // This requires a way to get the current user's restaurant ID.
-    // For now, assuming an endpoint `/api/restaurants/mine/` that returns the restaurant for the logged-in owner.
-    // This endpoint needs to be created in `restaurants/views.py` in the `RestaurantViewSet`.
-    // Example:
-    // @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
-    // def mine(self, request):
-    //     try:
-    //         restaurant = Restaurant.objects.get(user=request.user)
-    //         serializer = self.get_serializer(restaurant)
-    //         return Response(serializer.data)
-    //     except Restaurant.DoesNotExist:
-    //         return Response({"detail": "Restaurant not found for this user."}, status=status.HTTP_404_NOT_FOUND)
-    
-    // Call the function to load data
-    getMyRestaurantIdAndLoadData();
-
+    loadRestaurantData();
 });
 </script>
 {% endblock %}

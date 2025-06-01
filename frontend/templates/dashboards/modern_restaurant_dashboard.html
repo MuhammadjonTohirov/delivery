@@ -30,15 +30,21 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="#" data-section="orders">
+                        <a href="{% url 'webapp:restaurant_orders' %}">
                             <i class="fas fa-list"></i>
                             Order List
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="#" data-section="restaurants">
+                        <a href="{% url 'webapp:manage_restaurant' %}">
+                            <i class="fas fa-store"></i>
+                            Manage Restaurant
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'webapp:menu_management' %}">
                             <i class="fas fa-utensils"></i>
-                            Restaurants
+                            Menu Management
                         </a>
                     </li>
                     <li class="nav-item">
@@ -69,7 +75,7 @@
                 <div class="header-left">
                     <div class="page-title">
                         <h1 id="page-title">Dashboard</h1>
-                        <p id="page-subtitle">Hi, {{ user.full_name }}. Welcome back to Sedap Admin!</p>
+                        <p id="page-subtitle">Hi, {{ user.full_name }}. Welcome back to your restaurant dashboard!</p>
                     </div>
                 </div>
                 
@@ -105,6 +111,22 @@
                                 <span class="periode-text">17 April 2020 - 21 May 2020</span>
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Quick Action Buttons -->
+                    <div class="quick-actions mb-4">
+                        <a href="{% url 'webapp:manage_restaurant' %}" class="btn btn-primary">
+                            <i class="fas fa-store"></i> Manage Restaurant
+                        </a>
+                        <a href="{% url 'webapp:menu_management' %}" class="btn btn-success">
+                            <i class="fas fa-utensils"></i> Manage Menu
+                        </a>
+                        <a href="{% url 'webapp:category_form' %}" class="btn btn-info">
+                            <i class="fas fa-folder-plus"></i> Add Category
+                        </a>
+                        <a href="{% url 'webapp:menu_item_form' %}" class="btn btn-warning">
+                            <i class="fas fa-plus"></i> Add Menu Item
+                        </a>
                     </div>
 
                     <!-- Statistics Cards -->
@@ -225,7 +247,7 @@
                         <div class="reviews-header">
                             <div>
                                 <h3>Customer Review</h3>
-                                <p>Eum fuga consequuntur utadm et.</p>
+                                <p>Recent customer feedback for your restaurant.</p>
                             </div>
                             <div class="reviews-nav">
                                 <button class="nav-btn prev"><i class="fas fa-chevron-left"></i></button>
@@ -284,10 +306,10 @@
                                 <i class="fas fa-cogs"></i>
                                 Manage Menu
                             </a>
-                            <button class="btn-primary" id="add-food-btn">
+                            <a href="{% url 'webapp:menu_item_form' %}" class="btn-primary">
                                 <i class="fas fa-plus"></i>
                                 Add New Food
-                            </button>
+                            </a>
                         </div>
                         <div class="foods-list" id="foods-list">
                             <!-- Foods will be loaded here -->
