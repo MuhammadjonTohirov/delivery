@@ -1,6 +1,6 @@
 from django.db.models import F
 from django.utils import timezone
-from geography.models import calculate_distance
+from geography.utils import calculate_distance
 from drivers.models import DriverAvailability, DriverLocation, DriverTask
 from users.models import DriverProfile
 import logging

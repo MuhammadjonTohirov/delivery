@@ -1,17 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import (
-    CartViewSet, CustomerFavoriteViewSet, SavedCartViewSet, 
-    QuickReorderViewSet, RecentOrderViewSet, MenuItemCustomizationViewSet
-)
+from .views import CartViewSet, SavedCartViewSet, CartAbandonmentViewSet
 
 router = DefaultRouter()
-router.register(r'cart', CartViewSet, basename='cart')
-router.register(r'favorites', CustomerFavoriteViewSet, basename='favorite')
-router.register(r'saved-carts', SavedCartViewSet, basename='saved-cart')
-router.register(r'quick-reorders', QuickReorderViewSet, basename='quick-reorder')
-router.register(r'recent-orders', RecentOrderViewSet, basename='recent-order')
-router.register(r'customizations', MenuItemCustomizationViewSet, basename='customization')
+router.register(r'', CartViewSet, basename='cart')
+router.register(r'saved', SavedCartViewSet, basename='saved-cart')
+router.register(r'abandonment', CartAbandonmentViewSet, basename='cart-abandonment')
 
 app_name = 'cart'
 

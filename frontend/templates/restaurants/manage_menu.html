@@ -7,7 +7,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Manage Menu</h2>
         <div>
-            <a href="{% url 'webapp:menu_category_create' %}" class="btn btn-success">Add New Category</a>
+            <button id="add-category-btn" class="btn btn-success">Add New Category</button>
         </div>
     </div>
 
@@ -46,6 +46,67 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Form functions
+    function showAddCategoryForm() {
+        const name = prompt('Enter category name:');
+        if (name) {
+            const description = prompt('Enter category description (optional):');
+            const order = prompt('Enter display order (number):') || '0';
+            
+            fetchAPI('/api/restaurants/categories/', 'POST', {
+                restaurant: myRestaurantId,
+                name: name,
+                description: description,
+                order: parseInt(order)
+            })
+            .then(() => {
+                alert('Category added successfully.');
+                loadMenuData();
+            })
+            .catch(error => {
+                console.error('Error adding category:', error);
+                alert('Failed to add category.');
+            });
+        }
+    }
+
+    function showEditCategoryForm(categoryId) {
+        alert('Edit category functionality would be implemented here with a proper modal form.');
+    }
+
+    function showAddItemForm(categoryId) {
+        const name = prompt('Enter item name:');
+        if (name) {
+            const description = prompt('Enter item description:');
+            const price = prompt('Enter item price:');
+            
+            if (price && !isNaN(price)) {
+                fetchAPI('/api/restaurants/menu-items/', 'POST', {
+                    restaurant: myRestaurantId,
+                    category: categoryId,
+                    name: name,
+                    description: description,
+                    price: parseFloat(price),
+                    is_available: true
+                })
+                .then(() => {
+                    alert('Item added successfully.');
+                    loadMenuData();
+                })
+                .catch(error => {
+                    console.error('Error adding item:', error);
+                    alert('Failed to add item.');
+                });
+            } else {
+                alert('Please enter a valid price.');
+            }
+        }
+    }
+
+    function showEditItemForm(itemId) {
+        alert('Edit item functionality would be implemented here with a proper modal form.');
+    }
+
     function renderMenuManagement(categories) {
         loadingMenuMsg.style.display = 'none';
         menuManagementContainer.innerHTML = ''; // Clear previous content
@@ -63,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <br><small>Available: ${item.is_available ? 'Yes' : 'No'}, Featured: ${item.is_featured ? 'Yes' : 'No'}</small>
                                 </div>
                                 <div>
-                                    <a href="/my-restaurant/menu/items/${item.id}/edit/" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                    <button class="btn btn-sm btn-outline-primary me-2 edit-item-btn" data-item-id="${item.id}">Edit</button>
                                     <button class="btn btn-sm btn-outline-danger delete-item-btn" data-item-id="${item.id}">Delete</button>
                                 </div>
                             </li>
@@ -79,8 +140,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5>${category.name} <small class="text-muted">(Order: ${category.order})</small></h5>
                             <div>
-                                <a href="/my-restaurant/menu/categories/${category.id}/add-item/" class="btn btn-sm btn-success me-2">Add Item to this Category</a>
-                                <a href="/my-restaurant/menu/categories/${category.id}/edit/" class="btn btn-sm btn-primary me-2">Edit Category</a>
+                                <button class="btn btn-sm btn-success me-2 add-item-btn" data-category-id="${category.id}">Add Item to this Category</button>
+                                <button class="btn btn-sm btn-primary me-2 edit-category-btn" data-category-id="${category.id}">Edit Category</button>
                                 <button class="btn btn-sm btn-danger delete-category-btn" data-category-id="${category.id}">Delete Category</button>
                             </div>
                         </div>
@@ -99,11 +160,42 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function addEventListenersToDeleteButtons() {
+        // Add Category button
+        const addCategoryBtn = document.getElementById('add-category-btn');
+        if (addCategoryBtn) {
+            addCategoryBtn.addEventListener('click', function() {
+                showAddCategoryForm();
+            });
+        }
+
+        // Edit and Add Item buttons
+        document.querySelectorAll('.edit-category-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const categoryId = this.dataset.categoryId;
+                showEditCategoryForm(categoryId);
+            });
+        });
+
+        document.querySelectorAll('.add-item-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const categoryId = this.dataset.categoryId;
+                showAddItemForm(categoryId);
+            });
+        });
+
+        document.querySelectorAll('.edit-item-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const itemId = this.dataset.itemId;
+                showEditItemForm(itemId);
+            });
+        });
+
+        // Delete buttons
         document.querySelectorAll('.delete-category-btn').forEach(button => {
             button.addEventListener('click', function() {
                 const categoryId = this.dataset.categoryId;
                 if (confirm('Are you sure you want to delete this category and all its items?')) {
-                    fetchAPI(`/api/categories/${categoryId}/`, 'DELETE')
+                    fetchAPI(`/api/restaurants/categories/${categoryId}/`, 'DELETE')
                         .then(() => {
                             alert('Category deleted successfully.');
                             loadMenuData(); // Refresh list
@@ -120,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
             button.addEventListener('click', function() {
                 const itemId = this.dataset.itemId;
                 if (confirm('Are you sure you want to delete this menu item?')) {
-                    fetchAPI(`/api/menu-items/${itemId}/`, 'DELETE')
+                    fetchAPI(`/api/restaurants/menu-items/${itemId}/`, 'DELETE')
                         .then(() => {
                             alert('Menu item deleted successfully.');
                             loadMenuData(); // Refresh list
@@ -138,14 +230,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadMenuData() {
         loadingMenuMsg.style.display = 'block';
         // First, get the restaurant ID for the current owner
-        fetchAPI('/api/restaurants/mine/')
+        fetchAPI('/api/restaurants/list/mine/')
             .then(restaurantData => {
                 if (restaurantData && restaurantData.id) {
                     myRestaurantId = restaurantData.id;
                     // Then fetch categories for that restaurant
                     // The MenuCategoryViewSet list endpoint should be filterable by restaurant ID.
                     // e.g., /api/categories/?restaurant=<restaurant_id>
-                    return fetchAPI(`/api/categories/?restaurant=${myRestaurantId}`);
+                    return fetchAPI(`/api/restaurants/categories/?restaurant=${myRestaurantId}`);
                 } else {
                     throw new Error("Could not identify your restaurant.");
                 }

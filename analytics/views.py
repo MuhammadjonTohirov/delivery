@@ -1,475 +1,552 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count, Sum, Avg, Q, F
 from django.utils import timezone
-from datetime import timedelta, datetime
-from decimal import Decimal
+from datetime import datetime, timedelta, date
+from django.db.models.functions import TruncDate, TruncHour, TruncWeek, TruncMonth
 
-from orders.models import Order, OrderItem
-from restaurants.models import Restaurant, MenuItem
-from users.models import CustomUser
-from drivers.models import DriverEarning, DriverTask
-from payments.models import Payment
-from users.permissions import IsAdminUser, IsRestaurantOwner, IsDriver
+from .models import AnalyticsEvent, DashboardStats, RevenueMetrics, CustomerInsights, PopularMenuItems
+from .serializers import (
+    AnalyticsEventSerializer, DashboardStatsSerializer, RevenueMetricsSerializer,
+    CustomerInsightsSerializer, PopularMenuItemsSerializer, RestaurantDashboardSerializer,
+    PlatformDashboardSerializer, DateRangeSerializer
+)
+from users.permissions import IsRestaurantOwner, IsAdminUser
+from orders.models import Order
+from restaurants.models import Restaurant, MenuItem, RestaurantReview
+from users.models import CustomUser, DriverProfile
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 
-@extend_schema_view(
-    retrieve=extend_schema(summary="Get admin analytics dashboard", description="Get comprehensive analytics for admins"),
-)
-class AdminAnalyticsViewSet(viewsets.ViewSet):
-    """Analytics dashboard for admins"""
-    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
+class AnalyticsPermission(permissions.BasePermission):
+    """
+    Custom permission for analytics:
+    - Restaurant owners can view their own analytics
+    - Admins can view all analytics
+    """
+    def has_permission(self, request, view):
+        return request.user.is_authenticated
     
-    @extend_schema(
-        summary="Get dashboard overview",
-        description="Get key metrics overview for admin dashboard"
-    )
-    @action(detail=False, methods=['get'])
-    def dashboard(self, request):
-        # Date range parameters
-        days = int(request.query_params.get('days', 30))
-        end_date = timezone.now()
-        start_date = end_date - timedelta(days=days)
+    def has_object_permission(self, request, view, obj):
+        if request.user.is_staff:
+            return True
         
-        # Key metrics
-        total_orders = Order.objects.filter(created_at__gte=start_date).count()
-        total_revenue = Order.objects.filter(
-            created_at__gte=start_date,
-            status='DELIVERED'
-        ).aggregate(Sum('total_price'))['total_price__sum'] or 0
+        if request.user.role == 'RESTAURANT':
+            if hasattr(obj, 'restaurant'):
+                return obj.restaurant and hasattr(request.user, 'restaurant') and obj.restaurant == request.user.restaurant
         
-        active_restaurants = Restaurant.objects.filter(is_open=True).count()
-        active_drivers = CustomUser.objects.filter(role='DRIVER', is_active=True).count()
-        total_customers = CustomUser.objects.filter(role='CUSTOMER', is_active=True).count()
-        
-        # Order status breakdown
-        order_statuses = Order.objects.filter(created_at__gte=start_date).values('status').annotate(
-            count=Count('id')
-        ).order_by('status')
-        
-        # Revenue by day
-        daily_revenue = []
-        for i in range(days):
-            day = start_date + timedelta(days=i)
-            day_revenue = Order.objects.filter(
-                created_at__date=day.date(),
-                status='DELIVERED'
-            ).aggregate(Sum('total_price'))['total_price__sum'] or 0
-            
-            daily_revenue.append({
-                'date': day.date().isoformat(),
-                'revenue': float(day_revenue)
-            })
-        
-        # Top restaurants by orders
-        top_restaurants = Restaurant.objects.annotate(
-            order_count=Count('orders', filter=Q(orders__created_at__gte=start_date))
-        ).order_by('-order_count')[:10]
-        
-        # Top menu items
-        top_items = MenuItem.objects.annotate(
-            order_count=Count('orderitem', filter=Q(orderitem__order__created_at__gte=start_date))
-        ).order_by('-order_count')[:10]
-        
-        return Response({
-            'overview': {
-                'total_orders': total_orders,
-                'total_revenue': float(total_revenue),
-                'active_restaurants': active_restaurants,
-                'active_drivers': active_drivers,
-                'total_customers': total_customers,
-                'avg_order_value': float(total_revenue / total_orders) if total_orders > 0 else 0
-            },
-            'order_statuses': list(order_statuses),
-            'daily_revenue': daily_revenue,
-            'top_restaurants': [
-                {
-                    'id': str(r.id),
-                    'name': r.name,
-                    'order_count': r.order_count
-                } for r in top_restaurants
-            ],
-            'top_menu_items': [
-                {
-                    'id': str(item.id),
-                    'name': item.name,
-                    'restaurant': item.restaurant.name,
-                    'order_count': item.order_count
-                } for item in top_items
-            ]
-        })
-    
-    @extend_schema(
-        summary="Get user analytics",
-        description="Get user registration and activity analytics"
-    )
-    @action(detail=False, methods=['get'])
-    def users(self, request):
-        days = int(request.query_params.get('days', 30))
-        end_date = timezone.now()
-        start_date = end_date - timedelta(days=days)
-        
-        # User registrations by role
-        user_registrations = CustomUser.objects.filter(
-            date_joined__gte=start_date
-        ).values('role').annotate(count=Count('id'))
-        
-        # Daily registrations
-        daily_registrations = []
-        for i in range(days):
-            day = start_date + timedelta(days=i)
-            day_count = CustomUser.objects.filter(
-                date_joined__date=day.date()
-            ).count()
-            
-            daily_registrations.append({
-                'date': day.date().isoformat(),
-                'registrations': day_count
-            })
-        
-        # Active users (placed an order in the period)
-        active_customers = CustomUser.objects.filter(
-            role='CUSTOMER',
-            orders__created_at__gte=start_date
-        ).distinct().count()
-        
-        return Response({
-            'user_registrations': list(user_registrations),
-            'daily_registrations': daily_registrations,
-            'active_customers': active_customers
-        })
-    
-    @extend_schema(
-        summary="Get payment analytics",
-        description="Get payment and revenue analytics"
-    )
-    @action(detail=False, methods=['get'])
-    def payments(self, request):
-        days = int(request.query_params.get('days', 30))
-        end_date = timezone.now()
-        start_date = end_date - timedelta(days=days)
-        
-        # Payment method breakdown
-        payment_methods = Payment.objects.filter(
-            created_at__gte=start_date,
-            status='COMPLETED'
-        ).values('payment_method__type').annotate(
-            count=Count('id'),
-            total_amount=Sum('amount')
-        )
-        
-        # Failed payments
-        failed_payments = Payment.objects.filter(
-            created_at__gte=start_date,
-            status='FAILED'
-        ).count()
-        
-        total_payments = Payment.objects.filter(created_at__gte=start_date).count()
-        
-        return Response({
-            'payment_methods': list(payment_methods),
-            'failed_payments': failed_payments,
-            'success_rate': ((total_payments - failed_payments) / total_payments * 100) if total_payments > 0 else 0
-        })
+        return False
 
 
 @extend_schema_view(
-    retrieve=extend_schema(summary="Get restaurant analytics", description="Get analytics for restaurant owners"),
+    list=extend_schema(summary="List analytics events", description="List analytics events with filtering"),
+    create=extend_schema(summary="Create analytics event", description="Create a new analytics event"),
 )
+class AnalyticsEventViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing analytics events
+    """
+    serializer_class = AnalyticsEventSerializer
+    permission_classes = [AnalyticsPermission]
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        if user.is_staff:
+            return AnalyticsEvent.objects.all()
+        
+        if user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+            return AnalyticsEvent.objects.filter(restaurant=user.restaurant)
+        
+        return AnalyticsEvent.objects.none()
+
+
 class RestaurantAnalyticsViewSet(viewsets.ViewSet):
-    """Analytics dashboard for restaurant owners"""
-    permission_classes = [permissions.IsAuthenticated, IsRestaurantOwner]
+    """
+    ViewSet for restaurant-specific analytics and dashboard data
+    """
+    permission_classes = [permissions.IsAuthenticated]
     
-    @extend_schema(
-        summary="Get restaurant dashboard",
-        description="Get analytics for the restaurant owner's restaurant"
-    )
-    @action(detail=False, methods=['get'])
-    def dashboard(self, request):
-        try:
-            restaurant = request.user.restaurant
-        except:
-            return Response({"error": "No restaurant associated with this user."}, status=404)
+    def get_date_range(self, period='month'):
+        """
+        Get date range based on period
+        """
+        end_date = timezone.now().date()
         
-        days = int(request.query_params.get('days', 30))
-        end_date = timezone.now()
-        start_date = end_date - timedelta(days=days)
-        
-        # Restaurant specific metrics
-        total_orders = restaurant.orders.filter(created_at__gte=start_date).count()
-        total_revenue = restaurant.orders.filter(
-            created_at__gte=start_date,
-            status='DELIVERED'
-        ).aggregate(Sum('total_price'))['total_price__sum'] or 0
-        
-        # Order status breakdown
-        order_statuses = restaurant.orders.filter(created_at__gte=start_date).values('status').annotate(
-            count=Count('id')
-        )
-        
-        # Popular menu items
-        popular_items = MenuItem.objects.filter(
-            restaurant=restaurant
-        ).annotate(
-            order_count=Count('orderitem', filter=Q(orderitem__order__created_at__gte=start_date))
-        ).order_by('-order_count')[:10]
-        
-        # Daily revenue
-        daily_revenue = []
-        for i in range(days):
-            day = start_date + timedelta(days=i)
-            day_revenue = restaurant.orders.filter(
-                created_at__date=day.date(),
-                status='DELIVERED'
-            ).aggregate(Sum('total_price'))['total_price__sum'] or 0
-            
-            daily_revenue.append({
-                'date': day.date().isoformat(),
-                'revenue': float(day_revenue)
-            })
-        
-        # Average order value
-        avg_order_value = restaurant.orders.filter(
-            created_at__gte=start_date,
-            status='DELIVERED'
-        ).aggregate(Avg('total_price'))['total_price__avg'] or 0
-        
-        # Peak hours analysis
-        peak_hours = restaurant.orders.filter(
-            created_at__gte=start_date
-        ).extra(
-            select={'hour': 'EXTRACT(hour FROM created_at)'}
-        ).values('hour').annotate(
-            count=Count('id')
-        ).order_by('-count')
-        
-        return Response({
-            'overview': {
-                'total_orders': total_orders,
-                'total_revenue': float(total_revenue),
-                'avg_order_value': float(avg_order_value),
-                'menu_items_count': restaurant.menu_items.count()
-            },
-            'order_statuses': list(order_statuses),
-            'daily_revenue': daily_revenue,
-            'popular_items': [
-                {
-                    'id': str(item.id),
-                    'name': item.name,
-                    'order_count': item.order_count,
-                    'price': float(item.price)
-                } for item in popular_items
-            ],
-            'peak_hours': list(peak_hours)
-        })
-
-
-@extend_schema_view(
-    retrieve=extend_schema(summary="Get driver analytics", description="Get analytics for drivers"),
-)
-class DriverAnalyticsViewSet(viewsets.ViewSet):
-    """Analytics dashboard for drivers"""
-    permission_classes = [permissions.IsAuthenticated, IsDriver]
-    
-    @extend_schema(
-        summary="Get driver dashboard",
-        description="Get analytics for the driver"
-    )
-    @action(detail=False, methods=['get'])
-    def dashboard(self, request):
-        try:
-            driver_profile = request.user.driver_profile
-        except:
-            return Response({"error": "No driver profile associated with this user."}, status=404)
-        
-        days = int(request.query_params.get('days', 30))
-        end_date = timezone.now()
-        start_date = end_date - timedelta(days=days)
-        
-        # Driver specific metrics
-        total_deliveries = DriverTask.objects.filter(
-            driver=driver_profile,
-            status='DELIVERED',
-            completed_at__gte=start_date
-        ).count()
-        
-        total_earnings = DriverEarning.objects.filter(
-            driver=driver_profile,
-            timestamp__gte=start_date
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-        
-        # Task status breakdown
-        task_statuses = DriverTask.objects.filter(
-            driver=driver_profile,
-            assigned_at__gte=start_date
-        ).values('status').annotate(count=Count('id'))
-        
-        # Daily earnings
-        daily_earnings = []
-        for i in range(days):
-            day = start_date + timedelta(days=i)
-            day_earnings = DriverEarning.objects.filter(
-                driver=driver_profile,
-                timestamp__date=day.date()
-            ).aggregate(Sum('amount'))['amount__sum'] or 0
-            
-            daily_earnings.append({
-                'date': day.date().isoformat(),
-                'earnings': float(day_earnings)
-            })
-        
-        # Average earnings per delivery
-        avg_per_delivery = float(total_earnings / total_deliveries) if total_deliveries > 0 else 0
-        
-        # Acceptance rate
-        total_assigned = DriverTask.objects.filter(
-            driver=driver_profile,
-            assigned_at__gte=start_date
-        ).count()
-        
-        accepted_tasks = DriverTask.objects.filter(
-            driver=driver_profile,
-            assigned_at__gte=start_date,
-            status__in=['ACCEPTED', 'PICKED_UP', 'DELIVERED']
-        ).count()
-        
-        acceptance_rate = (accepted_tasks / total_assigned * 100) if total_assigned > 0 else 0
-        
-        return Response({
-            'overview': {
-                'total_deliveries': total_deliveries,
-                'total_earnings': float(total_earnings),
-                'avg_per_delivery': avg_per_delivery,
-                'acceptance_rate': round(acceptance_rate, 2)
-            },
-            'task_statuses': list(task_statuses),
-            'daily_earnings': daily_earnings
-        })
-
-
-class ReportsViewSet(viewsets.ViewSet):
-    """Generate detailed reports for admin users"""
-    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
-    
-    @extend_schema(
-        summary="Generate sales report",
-        description="Generate detailed sales report with filters"
-    )
-    @action(detail=False, methods=['get'])
-    def sales_report(self, request):
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-        restaurant_id = request.query_params.get('restaurant_id')
-        
-        # Default to last 30 days if no dates provided
-        if not start_date or not end_date:
-            end_date = timezone.now()
+        if period == 'today':
+            start_date = end_date
+        elif period == 'week':
+            start_date = end_date - timedelta(days=7)
+        elif period == 'month':
             start_date = end_date - timedelta(days=30)
+        elif period == 'quarter':
+            start_date = end_date - timedelta(days=90)
+        elif period == 'year':
+            start_date = end_date - timedelta(days=365)
         else:
-            start_date = datetime.fromisoformat(start_date)
-            end_date = datetime.fromisoformat(end_date)
+            start_date = end_date - timedelta(days=30)  # default to month
         
-        # Base queryset
+        return start_date, end_date
+    
+    @extend_schema(
+        summary="Get restaurant dashboard analytics",
+        description="Get comprehensive analytics data for restaurant dashboard"
+    )
+    @action(detail=False, methods=['get'])
+    def dashboard(self, request):
+        """
+        Get comprehensive dashboard analytics for a restaurant
+        """
+        user = request.user
+        restaurant_id = request.query_params.get('restaurant_id')
+        period = request.query_params.get('period', 'month')
+        
+        # Determine which restaurant to analyze
+        if user.is_staff and restaurant_id:
+            try:
+                restaurant = Restaurant.objects.get(id=restaurant_id)
+            except Restaurant.DoesNotExist:
+                return Response(
+                    {"error": "Restaurant not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        elif user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+            restaurant = user.restaurant
+        else:
+            return Response(
+                {"error": "No restaurant specified or accessible"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        start_date, end_date = self.get_date_range(period)
+        
+        # Calculate comprehensive analytics
+        analytics_data = self.calculate_restaurant_analytics(restaurant, start_date, end_date)
+        
+        serializer = RestaurantDashboardSerializer(analytics_data)
+        return Response(serializer.data)
+    
+    def calculate_restaurant_analytics(self, restaurant, start_date, end_date):
+        """
+        Calculate comprehensive analytics for a restaurant
+        """
+        # Base order queryset for the period
         orders_qs = Order.objects.filter(
-            created_at__gte=start_date,
-            created_at__lte=end_date,
-            status='DELIVERED'
+            restaurant=restaurant,
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
         )
         
-        # Filter by restaurant if specified
-        if restaurant_id:
-            orders_qs = orders_qs.filter(restaurant_id=restaurant_id)
-        
-        # Generate report data
+        # Basic stats
         total_orders = orders_qs.count()
         total_revenue = orders_qs.aggregate(Sum('total_price'))['total_price__sum'] or 0
-        avg_order_value = orders_qs.aggregate(Avg('total_price'))['total_price__avg'] or 0
         
-        # Sales by restaurant
-        restaurant_sales = orders_qs.values(
-            'restaurant__name'
-        ).annotate(
-            order_count=Count('id'),
-            revenue=Sum('total_price')
-        ).order_by('-revenue')
+        # Order status breakdown
+        orders_by_status = orders_qs.values('status').annotate(count=Count('id'))
+        status_dict = {item['status']: item['count'] for item in orders_by_status}
         
-        # Sales by day
-        daily_sales = orders_qs.extra(
-            select={'day': 'DATE(created_at)'}
+        # Customer metrics
+        unique_customers = orders_qs.values('customer').distinct().count()
+        
+        # Get previous period for comparison
+        period_days = (end_date - start_date).days
+        prev_start = start_date - timedelta(days=period_days)
+        prev_end = start_date
+        
+        prev_orders = Order.objects.filter(
+            restaurant=restaurant,
+            created_at__date__gte=prev_start,
+            created_at__date__lt=prev_end
+        )
+        
+        prev_revenue = prev_orders.aggregate(Sum('total_price'))['total_price__sum'] or 0
+        prev_customers = prev_orders.values('customer').distinct().count()
+        
+        # Calculate growth percentages
+        revenue_growth = None
+        if prev_revenue > 0:
+            revenue_growth = ((total_revenue - prev_revenue) / prev_revenue) * 100
+        
+        customer_growth = None
+        if prev_customers > 0:
+            customer_growth = ((unique_customers - prev_customers) / prev_customers) * 100
+        
+        # Time series data
+        daily_orders = self.get_daily_orders(restaurant, start_date, end_date)
+        weekly_orders = self.get_weekly_orders(restaurant, start_date, end_date)
+        monthly_revenue = self.get_monthly_revenue(restaurant, start_date, end_date)
+        
+        # Popular items
+        popular_items = self.get_popular_items(restaurant, start_date, end_date)
+        
+        # Average rating
+        avg_rating = RestaurantReview.objects.filter(restaurant=restaurant).aggregate(
+            Avg('rating')
+        )['rating__avg']
+        
+        # Performance metrics (mock data for now - would need to be calculated from order timestamps)
+        avg_prep_time = 25  # minutes
+        avg_delivery_time = 35  # minutes
+        
+        return {
+            'total_orders': total_orders,
+            'total_revenue': total_revenue,
+            'total_customers': unique_customers,
+            'average_rating': avg_rating,
+            'orders_by_status': status_dict,
+            'revenue_growth': revenue_growth,
+            'revenue_target': 10000,  # Could be configurable per restaurant
+            'new_customers': unique_customers,  # Simplified - would need to track actual new vs returning
+            'returning_customers': 0,  # Would need proper tracking
+            'customer_growth_percentage': customer_growth,
+            'average_preparation_time': avg_prep_time,
+            'average_delivery_time': avg_delivery_time,
+            'daily_orders': daily_orders,
+            'weekly_orders': weekly_orders,
+            'monthly_revenue': monthly_revenue,
+            'popular_items': popular_items,
+        }
+    
+    def get_daily_orders(self, restaurant, start_date, end_date):
+        """
+        Get daily order counts for charts
+        """
+        daily_data = Order.objects.filter(
+            restaurant=restaurant,
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        ).extra(
+            select={'day': 'date(created_at)'}
         ).values('day').annotate(
-            order_count=Count('id'),
+            count=Count('id'),
             revenue=Sum('total_price')
         ).order_by('day')
         
-        return Response({
-            'period': {
-                'start_date': start_date.date().isoformat(),
-                'end_date': end_date.date().isoformat()
-            },
-            'summary': {
-                'total_orders': total_orders,
-                'total_revenue': float(total_revenue),
-                'avg_order_value': float(avg_order_value)
-            },
-            'restaurant_sales': list(restaurant_sales),
-            'daily_sales': list(daily_sales)
-        })
+        return [
+            {
+                'date': item['day'].strftime('%Y-%m-%d'),
+                'orders': item['count'],
+                'revenue': float(item['revenue'] or 0)
+            }
+            for item in daily_data
+        ]
+    
+    def get_weekly_orders(self, restaurant, start_date, end_date):
+        """
+        Get weekly order data for charts
+        """
+        weekly_data = Order.objects.filter(
+            restaurant=restaurant,
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        ).annotate(
+            week=TruncWeek('created_at')
+        ).values('week').annotate(
+            count=Count('id'),
+            revenue=Sum('total_price')
+        ).order_by('week')
+        
+        return [
+            {
+                'week': item['week'].strftime('%Y-%m-%d'),
+                'orders': item['count'],
+                'revenue': float(item['revenue'] or 0)
+            }
+            for item in weekly_data
+        ]
+    
+    def get_monthly_revenue(self, restaurant, start_date, end_date):
+        """
+        Get monthly revenue data for charts
+        """
+        monthly_data = Order.objects.filter(
+            restaurant=restaurant,
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        ).annotate(
+            month=TruncMonth('created_at')
+        ).values('month').annotate(
+            revenue=Sum('total_price'),
+            count=Count('id')
+        ).order_by('month')
+        
+        return [
+            {
+                'month': item['month'].strftime('%Y-%m'),
+                'revenue': float(item['revenue'] or 0),
+                'orders': item['count']
+            }
+            for item in monthly_data
+        ]
+    
+    def get_popular_items(self, restaurant, start_date, end_date):
+        """
+        Get popular menu items for the period
+        """
+        from orders.models import OrderItem
+        
+        popular_items = OrderItem.objects.filter(
+            order__restaurant=restaurant,
+            order__created_at__date__gte=start_date,
+            order__created_at__date__lte=end_date
+        ).values(
+            'menu_item__id',
+            'menu_item__name',
+            'menu_item__price'
+        ).annotate(
+            order_count=Sum('quantity'),
+            total_revenue=Sum(F('quantity') * F('unit_price'))
+        ).order_by('-order_count')[:10]
+        
+        return [
+            {
+                'id': item['menu_item__id'],
+                'name': item['menu_item__name'],
+                'price': float(item['menu_item__price']),
+                'order_count': item['order_count'],
+                'total_revenue': float(item['total_revenue'] or 0)
+            }
+            for item in popular_items
+        ]
+
+
+class PlatformAnalyticsViewSet(viewsets.ViewSet):
+    """
+    ViewSet for platform-wide analytics (Admin only)
+    """
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
     
     @extend_schema(
-        summary="Generate customer report",
-        description="Generate customer behavior and analytics report"
+        summary="Get platform dashboard analytics",
+        description="Get comprehensive platform-wide analytics for admin dashboard"
     )
     @action(detail=False, methods=['get'])
-    def customer_report(self, request):
-        days = int(request.query_params.get('days', 30))
-        end_date = timezone.now()
-        start_date = end_date - timedelta(days=days)
+    def dashboard(self, request):
+        """
+        Get comprehensive platform analytics for admin dashboard
+        """
+        period = request.query_params.get('period', 'month')
+        start_date, end_date = self.get_date_range(period)
         
-        # Customer metrics
+        # Calculate platform analytics
+        analytics_data = self.calculate_platform_analytics(start_date, end_date)
+        
+        serializer = PlatformDashboardSerializer(analytics_data)
+        return Response(serializer.data)
+    
+    def get_date_range(self, period='month'):
+        """
+        Get date range based on period
+        """
+        end_date = timezone.now().date()
+        
+        if period == 'today':
+            start_date = end_date
+        elif period == 'week':
+            start_date = end_date - timedelta(days=7)
+        elif period == 'month':
+            start_date = end_date - timedelta(days=30)
+        elif period == 'quarter':
+            start_date = end_date - timedelta(days=90)
+        elif period == 'year':
+            start_date = end_date - timedelta(days=365)
+        else:
+            start_date = end_date - timedelta(days=30)
+        
+        return start_date, end_date
+    
+    def calculate_platform_analytics(self, start_date, end_date):
+        """
+        Calculate platform-wide analytics
+        """
+        # Total counts
+        total_restaurants = Restaurant.objects.count()
+        total_drivers = DriverProfile.objects.count()
         total_customers = CustomUser.objects.filter(role='CUSTOMER').count()
-        active_customers = CustomUser.objects.filter(
-            role='CUSTOMER',
-            orders__created_at__gte=start_date
-        ).distinct().count()
+        total_orders = Order.objects.count()
+        total_revenue = Order.objects.aggregate(Sum('total_price'))['total_price__sum'] or 0
         
-        new_customers = CustomUser.objects.filter(
+        # Monthly growth
+        current_month_start = timezone.now().replace(day=1).date()
+        new_restaurants_this_month = Restaurant.objects.filter(
+            created_at__date__gte=current_month_start
+        ).count()
+        new_drivers_this_month = DriverProfile.objects.filter(
+            created_at__date__gte=current_month_start
+        ).count()
+        new_customers_this_month = CustomUser.objects.filter(
             role='CUSTOMER',
-            date_joined__gte=start_date
+            date_joined__date__gte=current_month_start
         ).count()
         
-        # Customer order patterns
-        repeat_customers = CustomUser.objects.filter(
-            role='CUSTOMER'
+        # Performance metrics
+        platform_avg_rating = RestaurantReview.objects.aggregate(
+            Avg('rating')
+        )['rating__avg']
+        
+        delivered_orders = Order.objects.filter(status='DELIVERED').count()
+        successful_delivery_rate = (delivered_orders / total_orders * 100) if total_orders > 0 else 0
+        
+        # Revenue breakdown (mock data - would need proper commission tracking)
+        commission_earned = total_revenue * 0.15  # 15% commission
+        delivery_fees_collected = Order.objects.aggregate(
+            Sum('delivery_fee')
+        )['delivery_fee__sum'] or 0
+        
+        # Geographic data (simplified)
+        top_cities = [
+            {'city': 'New York', 'orders': 1250, 'revenue': 45000},
+            {'city': 'Los Angeles', 'orders': 980, 'revenue': 35000},
+            {'city': 'Chicago', 'orders': 750, 'revenue': 28000},
+        ]
+        
+        # Time series data
+        monthly_growth = self.get_monthly_growth()
+        revenue_trends = self.get_revenue_trends()
+        
+        return {
+            'total_restaurants': total_restaurants,
+            'total_drivers': total_drivers,
+            'total_customers': total_customers,
+            'total_orders': total_orders,
+            'total_revenue': total_revenue,
+            'new_restaurants_this_month': new_restaurants_this_month,
+            'new_drivers_this_month': new_drivers_this_month,
+            'new_customers_this_month': new_customers_this_month,
+            'platform_average_rating': platform_avg_rating,
+            'average_delivery_time': 35,  # Mock data
+            'successful_delivery_rate': successful_delivery_rate,
+            'commission_earned': commission_earned,
+            'delivery_fees_collected': delivery_fees_collected,
+            'top_cities': top_cities,
+            'monthly_growth': monthly_growth,
+            'revenue_trends': revenue_trends,
+        }
+    
+    def get_monthly_growth(self):
+        """
+        Get monthly growth data for the past 12 months
+        """
+        # This is simplified - in a real app, you'd calculate actual monthly growth
+        months = []
+        for i in range(12):
+            month_date = timezone.now().date().replace(day=1) - timedelta(days=30*i)
+            months.append({
+                'month': month_date.strftime('%Y-%m'),
+                'restaurants': 5 + i * 2,
+                'drivers': 8 + i * 3,
+                'customers': 50 + i * 15,
+                'orders': 200 + i * 45
+            })
+        return list(reversed(months))
+    
+    def get_revenue_trends(self):
+        """
+        Get revenue trends for the past 12 months
+        """
+        revenue_data = Order.objects.filter(
+            created_at__gte=timezone.now() - timedelta(days=365)
         ).annotate(
-            order_count=Count('orders', filter=Q(orders__created_at__gte=start_date))
-        ).filter(order_count__gt=1).count()
+            month=TruncMonth('created_at')
+        ).values('month').annotate(
+            revenue=Sum('total_price'),
+            orders=Count('id')
+        ).order_by('month')
         
-        # Average orders per customer
-        avg_orders_per_customer = Order.objects.filter(
-            created_at__gte=start_date
-        ).values('customer').annotate(
-            order_count=Count('id')
-        ).aggregate(Avg('order_count'))['order_count__avg'] or 0
-        
-        # Customer lifetime value (simplified)
-        customer_ltv = CustomUser.objects.filter(
-            role='CUSTOMER'
-        ).annotate(
-            total_spent=Sum('orders__total_price', filter=Q(orders__status='DELIVERED'))
-        ).aggregate(Avg('total_spent'))['total_spent__avg'] or 0
-        
-        return Response({
-            'customer_metrics': {
-                'total_customers': total_customers,
-                'active_customers': active_customers,
-                'new_customers': new_customers,
-                'repeat_customers': repeat_customers,
-                'repeat_rate': (repeat_customers / active_customers * 100) if active_customers > 0 else 0
-            },
-            'behavior_metrics': {
-                'avg_orders_per_customer': float(avg_orders_per_customer),
-                'customer_lifetime_value': float(customer_ltv)
+        return [
+            {
+                'month': item['month'].strftime('%Y-%m'),
+                'revenue': float(item['revenue'] or 0),
+                'orders': item['orders']
             }
-        })
+            for item in revenue_data
+        ]
+
+
+@extend_schema_view(
+    list=extend_schema(summary="List dashboard stats", description="List pre-calculated dashboard statistics"),
+)
+class DashboardStatsViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for pre-calculated dashboard statistics
+    """
+    serializer_class = DashboardStatsSerializer
+    permission_classes = [AnalyticsPermission]
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        if user.is_staff:
+            return DashboardStats.objects.all()
+        
+        if user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+            return DashboardStats.objects.filter(restaurant=user.restaurant)
+        
+        return DashboardStats.objects.none()
+
+
+@extend_schema_view(
+    list=extend_schema(summary="List revenue metrics", description="List detailed revenue tracking data"),
+)
+class RevenueMetricsViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for revenue metrics and tracking
+    """
+    serializer_class = RevenueMetricsSerializer
+    permission_classes = [AnalyticsPermission]
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        if user.is_staff:
+            return RevenueMetrics.objects.all()
+        
+        if user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+            return RevenueMetrics.objects.filter(restaurant=user.restaurant)
+        
+        return RevenueMetrics.objects.none()
+
+
+@extend_schema_view(
+    list=extend_schema(summary="List customer insights", description="List customer behavior analytics"),
+)
+class CustomerInsightsViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for customer insights and behavior analytics
+    """
+    serializer_class = CustomerInsightsSerializer
+    permission_classes = [AnalyticsPermission]
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        if user.is_staff:
+            return CustomerInsights.objects.all()
+        
+        if user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+            return CustomerInsights.objects.filter(restaurant=user.restaurant)
+        
+        return CustomerInsights.objects.none()
+
+
+@extend_schema_view(
+    list=extend_schema(summary="List popular menu items", description="List popular menu items analytics"),
+)
+class PopularMenuItemsViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for popular menu items analytics
+    """
+    serializer_class = PopularMenuItemsSerializer
+    permission_classes = [AnalyticsPermission]
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        if user.is_staff:
+            return PopularMenuItems.objects.all()
+        
+        if user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+            return PopularMenuItems.objects.filter(restaurant=user.restaurant)
+        
+        return PopularMenuItems.objects.none()

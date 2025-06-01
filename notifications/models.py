@@ -1,216 +1,215 @@
-from datetime import datetime
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from core.models import TimeStampedModel
+import uuid
 
 
-class NotificationTemplate(TimeStampedModel):
-    NOTIFICATION_TYPE_CHOICES = (
+class NotificationTemplate(models.Model):
+    """
+    Template for different types of notifications
+    """
+    NOTIFICATION_TYPES = (
         ('ORDER_PLACED', 'Order Placed'),
         ('ORDER_CONFIRMED', 'Order Confirmed'),
-        ('ORDER_PREPARING', 'Order Preparing'),
+        ('ORDER_PREPARING', 'Order Being Prepared'),
         ('ORDER_READY', 'Order Ready for Pickup'),
         ('ORDER_PICKED_UP', 'Order Picked Up'),
-        ('ORDER_ON_THE_WAY', 'Order On the Way'),
         ('ORDER_DELIVERED', 'Order Delivered'),
         ('ORDER_CANCELLED', 'Order Cancelled'),
-        ('PAYMENT_SUCCESS', 'Payment Successful'),
-        ('PAYMENT_FAILED', 'Payment Failed'),
         ('DRIVER_ASSIGNED', 'Driver Assigned'),
+        ('DRIVER_NEARBY', 'Driver Nearby'),
+        ('PAYMENT_SUCCESSFUL', 'Payment Successful'),
+        ('PAYMENT_FAILED', 'Payment Failed'),
+        ('REVIEW_REQUEST', 'Review Request'),
         ('PROMOTION_AVAILABLE', 'Promotion Available'),
-        ('LOYALTY_POINTS_EARNED', 'Loyalty Points Earned'),
-        ('REFERRAL_REWARD', 'Referral Reward'),
-        ('RESTAURANT_APPROVED', 'Restaurant Approved'),
-        ('RESTAURANT_REJECTED', 'Restaurant Rejected'),
+        ('RESTAURANT_OPENED', 'Restaurant Opened'),
+        ('RESTAURANT_CLOSED', 'Restaurant Closed'),
         ('SYSTEM_MAINTENANCE', 'System Maintenance'),
-        ('WELCOME', 'Welcome Message'),
     )
     
-    CHANNEL_CHOICES = (
-        ('IN_APP', 'In-App Notification'),
-        ('EMAIL', 'Email'),
-        ('SMS', 'SMS'),
-        ('PUSH', 'Push Notification'),
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES, unique=True)
+    title_template = models.CharField(max_length=200)
+    message_template = models.TextField()
     
-    type = models.CharField(max_length=30, choices=NOTIFICATION_TYPE_CHOICES, unique=True)
-    name = models.CharField(max_length=100)
-    
-    # Template content for different channels
-    in_app_title = models.CharField(max_length=200, blank=True)
-    in_app_message = models.TextField(blank=True)
-    
-    email_subject = models.CharField(max_length=200, blank=True)
-    email_template = models.TextField(blank=True)
-    
-    sms_message = models.CharField(max_length=160, blank=True)
-    
-    push_title = models.CharField(max_length=100, blank=True)
-    push_message = models.CharField(max_length=200, blank=True)
-    
-    # Channels where this notification should be sent
-    enabled_channels = models.JSONField(default=list)  # ['IN_APP', 'EMAIL', 'PUSH']
-    
+    # Notification settings
     is_active = models.BooleanField(default=True)
+    send_push = models.BooleanField(default=True)
+    send_email = models.BooleanField(default=False)
+    send_sms = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.name} ({self.get_type_display()})"
+        return f"{self.get_type_display()} Template"
 
 
 class Notification(TimeStampedModel):
+    """
+    Individual notification sent to users
+    """
     PRIORITY_CHOICES = (
         ('LOW', 'Low'),
-        ('NORMAL', 'Normal'),
+        ('MEDIUM', 'Medium'),
         ('HIGH', 'High'),
         ('URGENT', 'Urgent'),
     )
     
-    STATUS_CHOICES = (
-        ('PENDING', 'Pending'),
-        ('SENT', 'Sent'),
-        ('DELIVERED', 'Delivered'),
-        ('READ', 'Read'),
-        ('FAILED', 'Failed'),
-    )
-    
     recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
-    template = models.ForeignKey(NotificationTemplate, on_delete=models.CASCADE, related_name='notifications')
+    template = models.ForeignKey(NotificationTemplate, on_delete=models.SET_NULL, null=True, blank=True)
     
     title = models.CharField(max_length=200)
     message = models.TextField()
-    
-    # Metadata
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='NORMAL')
-    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='PENDING')
-    
-    # Context data for template rendering
-    context_data = models.JSONField(default=dict, blank=True)
-    
-    # Tracking
-    sent_at = models.DateTimeField(null=True, blank=True)
-    read_at = models.DateTimeField(null=True, blank=True)
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='MEDIUM')
     
     # Related objects
     related_order = models.ForeignKey('orders.Order', on_delete=models.CASCADE, null=True, blank=True)
     related_restaurant = models.ForeignKey('restaurants.Restaurant', on_delete=models.CASCADE, null=True, blank=True)
     
-    # Action button (optional)
-    action_url = models.URLField(blank=True, null=True)
-    action_text = models.CharField(max_length=50, blank=True, null=True)
+    # Status
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+    
+    # Delivery status
+    sent_push = models.BooleanField(default=False)
+    sent_email = models.BooleanField(default=False)
+    sent_sms = models.BooleanField(default=False)
+    
+    # Additional data
+    action_url = models.URLField(null=True, blank=True)
+    action_text = models.CharField(max_length=50, null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
     
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', 'is_read', 'created_at']),
+            models.Index(fields=['recipient', 'created_at']),
+            models.Index(fields=['template', 'created_at']),
+        ]
     
     def __str__(self):
-        return f"{self.title} for {self.recipient.full_name}"
+        return f"{self.title} - {self.recipient.full_name}"
     
     def mark_as_read(self):
-        if self.status != 'READ':
-            self.status = 'READ'
-            self.read_at = datetime.now()
-            self.save()
+        """
+        Mark notification as read
+        """
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save(update_fields=['is_read', 'read_at'])
 
 
-class NotificationDelivery(TimeStampedModel):
-    """Track delivery across different channels"""
-    notification = models.ForeignKey(Notification, on_delete=models.CASCADE, related_name='deliveries')
-    channel = models.CharField(max_length=10, choices=NotificationTemplate.CHANNEL_CHOICES)
-    
-    # Delivery details
-    recipient_address = models.CharField(max_length=255)  # email, phone, device_token
-    
-    status = models.CharField(max_length=15, choices=Notification.STATUS_CHOICES, default='PENDING')
-    
-    # External service tracking
-    external_id = models.CharField(max_length=100, blank=True, null=True)
-    response_data = models.JSONField(default=dict, blank=True)
-    
-    sent_at = models.DateTimeField(null=True, blank=True)
-    delivered_at = models.DateTimeField(null=True, blank=True)
-    failed_at = models.DateTimeField(null=True, blank=True)
-    failure_reason = models.TextField(blank=True, null=True)
-    
-    def __str__(self):
-        return f"{self.notification.title} via {self.channel} to {self.recipient_address}"
-
-
-class NotificationPreference(TimeStampedModel):
-    """User preferences for different types of notifications"""
+class NotificationPreference(models.Model):
+    """
+    User preferences for different types of notifications
+    """
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notification_preferences')
     
-    # Channel preferences
-    enable_in_app = models.BooleanField(default=True)
-    enable_email = models.BooleanField(default=True)
-    enable_sms = models.BooleanField(default=False)
-    enable_push = models.BooleanField(default=True)
+    # Order notifications
+    order_updates_push = models.BooleanField(default=True)
+    order_updates_email = models.BooleanField(default=True)
+    order_updates_sms = models.BooleanField(default=False)
     
-    # Notification type preferences
-    order_updates = models.BooleanField(default=True)
-    payment_updates = models.BooleanField(default=True)
-    promotional = models.BooleanField(default=True)
-    driver_updates = models.BooleanField(default=True)
-    restaurant_updates = models.BooleanField(default=True)
-    system_updates = models.BooleanField(default=True)
+    # Promotion notifications
+    promotions_push = models.BooleanField(default=True)
+    promotions_email = models.BooleanField(default=False)
+    promotions_sms = models.BooleanField(default=False)
     
-    # Quiet hours
-    quiet_hours_enabled = models.BooleanField(default=False)
-    quiet_hours_start = models.TimeField(null=True, blank=True)
-    quiet_hours_end = models.TimeField(null=True, blank=True)
+    # System notifications
+    system_updates_push = models.BooleanField(default=True)
+    system_updates_email = models.BooleanField(default=False)
+    
+    # Restaurant notifications (for restaurant owners)
+    restaurant_orders_push = models.BooleanField(default=True)
+    restaurant_orders_email = models.BooleanField(default=True)
+    restaurant_reviews_push = models.BooleanField(default=True)
+    restaurant_reviews_email = models.BooleanField(default=True)
+    
+    # Driver notifications (for drivers)
+    driver_assignments_push = models.BooleanField(default=True)
+    driver_assignments_sms = models.BooleanField(default=True)
+    
+    # General settings
+    do_not_disturb_start = models.TimeField(null=True, blank=True)
+    do_not_disturb_end = models.TimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"Notification preferences for {self.user.full_name}"
+        return f"{self.user.full_name} - Notification Preferences"
 
 
-class DeviceToken(TimeStampedModel):
-    """Store device tokens for push notifications"""
-    DEVICE_TYPE_CHOICES = (
-        ('IOS', 'iOS'),
-        ('ANDROID', 'Android'),
-        ('WEB', 'Web Browser'),
+class PushToken(models.Model):
+    """
+    Store push notification tokens for mobile devices
+    """
+    DEVICE_TYPES = (
+        ('ios', 'iOS'),
+        ('android', 'Android'),
+        ('web', 'Web'),
     )
     
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='device_tokens')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='push_tokens')
     token = models.TextField()
-    device_type = models.CharField(max_length=10, choices=DEVICE_TYPE_CHOICES)
-    device_name = models.CharField(max_length=100, blank=True)
+    device_type = models.CharField(max_length=10, choices=DEVICE_TYPES)
+    device_id = models.CharField(max_length=100, null=True, blank=True)
     
     is_active = models.BooleanField(default=True)
     last_used = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         unique_together = ('user', 'token')
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['token']),
+        ]
     
     def __str__(self):
-        return f"{self.device_type} token for {self.user.full_name}"
+        return f"{self.user.full_name} - {self.device_type} token"
 
 
-class NotificationBatch(TimeStampedModel):
-    """For sending bulk notifications"""
-    name = models.CharField(max_length=100)
-    template = models.ForeignKey(NotificationTemplate, on_delete=models.CASCADE)
+class NotificationLog(models.Model):
+    """
+    Log of notification delivery attempts
+    """
+    notification = models.ForeignKey(Notification, on_delete=models.CASCADE, related_name='delivery_logs')
+    delivery_method = models.CharField(max_length=10, choices=[
+        ('push', 'Push Notification'),
+        ('email', 'Email'),
+        ('sms', 'SMS'),
+    ])
     
-    # Targeting
-    target_user_roles = models.JSONField(default=list)  # ['CUSTOMER', 'DRIVER']
-    target_restaurants = models.ManyToManyField('restaurants.Restaurant', blank=True)
-    target_cities = models.JSONField(default=list, blank=True)
+    # Delivery status
+    status = models.CharField(max_length=20, choices=[
+        ('pending', 'Pending'),
+        ('sent', 'Sent'),
+        ('delivered', 'Delivered'),
+        ('failed', 'Failed'),
+        ('bounced', 'Bounced'),
+    ], default='pending')
     
-    # Filters
-    only_active_users = models.BooleanField(default=True)
-    only_users_with_orders = models.BooleanField(default=False)
-    min_orders_count = models.PositiveIntegerField(null=True, blank=True)
+    # Details
+    provider = models.CharField(max_length=50, null=True, blank=True)  # e.g., 'firebase', 'twilio', 'sendgrid'
+    provider_message_id = models.CharField(max_length=200, null=True, blank=True)
+    error_message = models.TextField(null=True, blank=True)
     
-    # Scheduling
-    scheduled_at = models.DateTimeField(null=True, blank=True)
+    # Timestamps
     sent_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     
-    # Stats
-    total_recipients = models.PositiveIntegerField(default=0)
-    successful_sends = models.PositiveIntegerField(default=0)
-    failed_sends = models.PositiveIntegerField(default=0)
-    
-    status = models.CharField(max_length=15, default='DRAFT')  # DRAFT, SCHEDULED, SENDING, COMPLETED, FAILED
-    
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['notification', 'delivery_method']),
+            models.Index(fields=['status', 'created_at']),
+        ]
     
     def __str__(self):
-        return f"Batch: {self.name}"
+        return f"{self.notification.title} - {self.delivery_method} - {self.status}"

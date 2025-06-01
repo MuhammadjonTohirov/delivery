@@ -1,241 +1,251 @@
 from django.db import models
 from django.conf import settings
 from core.models import TimeStampedModel
-from restaurants.models import Restaurant
-from decimal import Decimal
-import math
-
-
-class City(TimeStampedModel):
-    name = models.CharField(max_length=100)
-    state = models.CharField(max_length=100)
-    country = models.CharField(max_length=100)
-    
-    # Center coordinates
-    latitude = models.DecimalField(max_digits=9, decimal_places=6)
-    longitude = models.DecimalField(max_digits=9, decimal_places=6)
-    
-    # Service availability
-    is_service_available = models.BooleanField(default=False)
-    timezone = models.CharField(max_length=50, default='UTC')
-    
-    # Operational details
-    service_start_time = models.TimeField(null=True, blank=True)
-    service_end_time = models.TimeField(null=True, blank=True)
-    
-    class Meta:
-        verbose_name_plural = 'Cities'
-        unique_together = ('name', 'state', 'country')
-    
-    def __str__(self):
-        return f"{self.name}, {self.state}, {self.country}"
-
-
-class DeliveryZone(TimeStampedModel):
-    name = models.CharField(max_length=100)
-    city = models.ForeignKey(City, on_delete=models.CASCADE, related_name='delivery_zones')
-    
-    # Zone definition (polygon coordinates)
-    boundary_coordinates = models.JSONField(help_text="Array of lat/lng coordinates defining the zone boundary")
-    
-    # Pricing
-    base_delivery_fee = models.DecimalField(max_digits=8, decimal_places=2, default=0)
-    per_km_rate = models.DecimalField(max_digits=6, decimal_places=2, default=0)
-    free_delivery_threshold = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    
-    # Service parameters
-    max_delivery_distance_km = models.DecimalField(max_digits=5, decimal_places=2, default=10)
-    estimated_delivery_time_minutes = models.PositiveIntegerField(default=30)
-    
-    # Operational
-    is_active = models.BooleanField(default=True)
-    priority = models.PositiveIntegerField(default=1)  # Lower number = higher priority
-    
-    # Restrictions
-    min_order_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    max_order_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    
-    def __str__(self):
-        return f"{self.name} - {self.city.name}"
-    
-    def calculate_delivery_fee(self, distance_km, order_amount):
-        """Calculate delivery fee based on distance and order amount"""
-        if self.free_delivery_threshold and order_amount >= self.free_delivery_threshold:
-            return Decimal('0')
-        
-        fee = self.base_delivery_fee + (self.per_km_rate * Decimal(str(distance_km)))
-        return fee
-    
-    def is_point_in_zone(self, latitude, longitude):
-        """Check if a point is within the delivery zone boundary"""
-        # Simple implementation - in production, use proper geospatial libraries
-        # This is a placeholder for point-in-polygon calculation
-        return True  # Simplified for now
+import uuid
 
 
 class Address(TimeStampedModel):
-    ADDRESS_TYPE_CHOICES = (
-        ('HOME', 'Home'),
-        ('WORK', 'Work'),
-        ('OTHER', 'Other'),
-    )
-    
+    """
+    Standardized address model for deliveries
+    """
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='addresses')
     
     # Address details
-    label = models.CharField(max_length=50, blank=True)  # "Home", "Office", etc.
-    type = models.CharField(max_length=10, choices=ADDRESS_TYPE_CHOICES, default='HOME')
-    
-    street_address = models.TextField()
-    apartment_unit = models.CharField(max_length=50, blank=True)
+    label = models.CharField(max_length=50, null=True, blank=True)  # e.g., "Home", "Work", "Office"
+    street_address = models.CharField(max_length=200)
+    apartment_unit = models.CharField(max_length=50, null=True, blank=True)
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
     postal_code = models.CharField(max_length=20)
     country = models.CharField(max_length=100, default='United States')
     
-    # Coordinates
+    # Geographic coordinates
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     
-    # Delivery instructions
-    delivery_instructions = models.TextField(blank=True)
-    
-    # Status
+    # Additional details
+    delivery_instructions = models.TextField(null=True, blank=True)
     is_default = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     
-    # Zone association
-    delivery_zone = models.ForeignKey(DeliveryZone, on_delete=models.SET_NULL, null=True, blank=True)
-    
     class Meta:
         ordering = ['-is_default', '-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_default']),
+            models.Index(fields=['latitude', 'longitude']),
+            models.Index(fields=['city', 'state']),
+        ]
     
     def __str__(self):
-        if self.label:
-            return f"{self.label} - {self.street_address}"
-        return self.street_address
+        return f"{self.user.full_name} - {self.label or 'Address'}"
     
-    def get_full_address(self):
-        """Return formatted full address"""
+    def save(self, *args, **kwargs):
+        # Ensure only one default address per user
+        if self.is_default:
+            Address.objects.filter(user=self.user, is_default=True).update(is_default=False)
+        super().save(*args, **kwargs)
+    
+    @property
+    def full_address(self):
+        """
+        Get formatted full address
+        """
         parts = [self.street_address]
         if self.apartment_unit:
             parts.append(f"Apt {self.apartment_unit}")
-        parts.extend([self.city, self.state, self.postal_code])
+        parts.extend([self.city, f"{self.state} {self.postal_code}", self.country])
         return ", ".join(parts)
 
 
-class RestaurantDeliveryZone(TimeStampedModel):
-    """Many-to-many relationship between restaurants and delivery zones with custom parameters"""
-    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='delivery_zones')
-    zone = models.ForeignKey(DeliveryZone, on_delete=models.CASCADE, related_name='restaurants')
-    
-    # Restaurant-specific overrides
-    custom_delivery_fee = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
-    custom_min_order_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    custom_delivery_time = models.PositiveIntegerField(null=True, blank=True)
-    
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        unique_together = ('restaurant', 'zone')
-    
-    def __str__(self):
-        return f"{self.restaurant.name} serves {self.zone.name}"
-    
-    def get_delivery_fee(self, distance_km, order_amount):
-        """Get delivery fee with restaurant-specific overrides"""
-        if self.custom_delivery_fee is not None:
-            return self.custom_delivery_fee
-        return self.zone.calculate_delivery_fee(distance_km, order_amount)
-
-
-class DeliveryEstimate(TimeStampedModel):
-    """Store delivery time estimates and pricing for address/restaurant combinations"""
-    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
-    delivery_address = models.ForeignKey(Address, on_delete=models.CASCADE)
-    
-    # Distance and time
-    distance_km = models.DecimalField(max_digits=6, decimal_places=2)
-    estimated_time_minutes = models.PositiveIntegerField()
-    
-    # Pricing
-    delivery_fee = models.DecimalField(max_digits=8, decimal_places=2)
-    
-    # Validity
-    valid_until = models.DateTimeField()
-    
-    class Meta:
-        unique_together = ('restaurant', 'delivery_address')
-    
-    def __str__(self):
-        return f"Delivery from {self.restaurant.name} to {self.delivery_address}"
-
-
-class ServiceArea(TimeStampedModel):
-    """Overall service area definition"""
+class DeliveryZone(TimeStampedModel):
+    """
+    Delivery zones for restaurants and service areas
+    """
     name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
+    restaurant = models.ForeignKey('restaurants.Restaurant', on_delete=models.CASCADE, related_name='delivery_zones', null=True, blank=True)
     
-    # Geographic bounds
-    north_bound = models.DecimalField(max_digits=9, decimal_places=6)
-    south_bound = models.DecimalField(max_digits=9, decimal_places=6)
-    east_bound = models.DecimalField(max_digits=9, decimal_places=6)
-    west_bound = models.DecimalField(max_digits=9, decimal_places=6)
+    # Zone boundaries (simplified polygon using center + radius)
+    center_latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    center_longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    radius_km = models.DecimalField(max_digits=5, decimal_places=2, default=5.0)  # Delivery radius in kilometers
     
-    # Service configuration
+    # Pricing and timing
+    base_delivery_fee = models.DecimalField(max_digits=6, decimal_places=2, default=2.50)
+    per_km_fee = models.DecimalField(max_digits=4, decimal_places=2, default=0.50)
+    estimated_delivery_time_minutes = models.IntegerField(default=30)
+    
+    # Availability
     is_active = models.BooleanField(default=True)
-    launch_date = models.DateField(null=True, blank=True)
+    priority = models.IntegerField(default=1)  # Higher priority zones are checked first
     
-    # Contact info for the area
-    support_phone = models.CharField(max_length=20, blank=True)
-    support_email = models.EmailField(blank=True)
+    class Meta:
+        ordering = ['-priority', 'name']
+        indexes = [
+            models.Index(fields=['restaurant', 'is_active']),
+            models.Index(fields=['center_latitude', 'center_longitude']),
+        ]
     
     def __str__(self):
-        return self.name
+        restaurant_name = self.restaurant.name if self.restaurant else "Platform"
+        return f"{restaurant_name} - {self.name}"
     
     def contains_point(self, latitude, longitude):
-        """Check if a point is within the service area bounds"""
-        return (
-            self.south_bound <= latitude <= self.north_bound and
-            self.west_bound <= longitude <= self.east_bound
+        """
+        Check if a point is within this delivery zone
+        """
+        from .utils import calculate_distance
+        
+        distance = calculate_distance(
+            self.center_latitude, self.center_longitude,
+            latitude, longitude
         )
+        return distance <= float(self.radius_km)
 
 
-class LocationSearchCache(TimeStampedModel):
-    """Cache for location searches to improve performance"""
-    search_query = models.CharField(max_length=255, unique=True)
+class LocationHistory(TimeStampedModel):
+    """
+    Track location history for drivers and delivery tracking
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='location_history')
+    order = models.ForeignKey('orders.Order', on_delete=models.CASCADE, null=True, blank=True, related_name='location_updates')
     
-    # Geocoding results
-    formatted_address = models.TextField()
+    # Location data
     latitude = models.DecimalField(max_digits=9, decimal_places=6)
     longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    accuracy = models.FloatField(null=True, blank=True)  # GPS accuracy in meters
+    altitude = models.FloatField(null=True, blank=True)
+    speed = models.FloatField(null=True, blank=True)  # Speed in km/h
     
-    # Additional data
-    city = models.CharField(max_length=100, blank=True)
-    state = models.CharField(max_length=100, blank=True)
-    country = models.CharField(max_length=100, blank=True)
-    postal_code = models.CharField(max_length=20, blank=True)
+    # Context
+    activity_type = models.CharField(max_length=20, choices=[
+        ('IDLE', 'Idle'),
+        ('DRIVING', 'Driving'),
+        ('WALKING', 'Walking'),
+        ('PICKUP', 'At Pickup Location'),
+        ('DELIVERY', 'At Delivery Location'),
+    ], default='IDLE')
     
-    # Cache metadata
-    hit_count = models.PositiveIntegerField(default=0)
-    last_accessed = models.DateTimeField(auto_now=True)
+    # Metadata
+    device_info = models.JSONField(default=dict, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['order', 'created_at']),
+            models.Index(fields=['latitude', 'longitude']),
+        ]
     
     def __str__(self):
-        return f"Cache: {self.search_query} -> {self.formatted_address}"
+        return f"{self.user.full_name} location at {self.created_at}"
 
 
-def calculate_distance(lat1, lon1, lat2, lon2):
-    """Calculate distance between two points using Haversine formula"""
-    # Convert latitude and longitude from degrees to radians
-    lat1, lon1, lat2, lon2 = map(math.radians, [float(lat1), float(lon1), float(lat2), float(lon2)])
+class GeocodingCache(models.Model):
+    """
+    Cache geocoding results to avoid repeated API calls
+    """
+    address_hash = models.CharField(max_length=64, unique=True)  # Hash of normalized address
+    original_address = models.TextField()
     
-    # Haversine formula
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-    c = 2 * math.asin(math.sqrt(a))
+    # Geocoded results
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    formatted_address = models.TextField(null=True, blank=True)
     
-    # Radius of earth in kilometers
-    r = 6371
+    # Administrative details
+    city = models.CharField(max_length=100, null=True, blank=True)
+    state = models.CharField(max_length=100, null=True, blank=True)
+    country = models.CharField(max_length=100, null=True, blank=True)
+    postal_code = models.CharField(max_length=20, null=True, blank=True)
     
-    return c * r
+    # Geocoding metadata
+    provider = models.CharField(max_length=50, null=True, blank=True)  # e.g., 'google', 'mapbox'
+    confidence_score = models.FloatField(null=True, blank=True)
+    is_exact_match = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['address_hash']),
+            models.Index(fields=['latitude', 'longitude']),
+        ]
+    
+    def __str__(self):
+        return f"Geocoding: {self.original_address[:50]}"
+
+
+class DeliveryRoute(TimeStampedModel):
+    """
+    Optimized delivery routes for drivers
+    """
+    driver = models.ForeignKey('users.DriverProfile', on_delete=models.CASCADE, related_name='delivery_routes')
+    orders = models.ManyToManyField('orders.Order', related_name='delivery_routes')
+    
+    # Route details
+    total_distance_km = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    estimated_duration_minutes = models.IntegerField(null=True, blank=True)
+    actual_duration_minutes = models.IntegerField(null=True, blank=True)
+    
+    # Route optimization data
+    route_waypoints = models.JSONField(default=list, blank=True)  # List of lat/lng coordinates
+    optimization_algorithm = models.CharField(max_length=50, default='nearest_neighbor')
+    
+    # Status
+    status = models.CharField(max_length=20, choices=[
+        ('PLANNED', 'Planned'),
+        ('ACTIVE', 'Active'),
+        ('COMPLETED', 'Completed'),
+        ('CANCELLED', 'Cancelled'),
+    ], default='PLANNED')
+    
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['driver', 'status']),
+            models.Index(fields=['status', 'created_at']),
+        ]
+    
+    def __str__(self):
+        return f"Route for {self.driver.user.full_name} - {self.orders.count()} orders"
+
+
+class ServiceArea(models.Model):
+    """
+    Platform service areas and coverage zones
+    """
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=20, unique=True)  # e.g., 'NYC_MANHATTAN', 'LA_DOWNTOWN'
+    
+    # Geographic boundaries
+    center_latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    center_longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    radius_km = models.DecimalField(max_digits=6, decimal_places=2)
+    
+    # Service details
+    is_active = models.BooleanField(default=True)
+    launch_date = models.DateField(null=True, blank=True)
+    timezone = models.CharField(max_length=50, default='UTC')
+    
+    # Operational settings
+    min_order_value = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    max_delivery_distance_km = models.DecimalField(max_digits=5, decimal_places=2, default=10)
+    average_delivery_time_minutes = models.IntegerField(default=35)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['is_active']),
+            models.Index(fields=['center_latitude', 'center_longitude']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.code})"

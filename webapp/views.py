@@ -1,280 +1,448 @@
-# webapp/views.py
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.core.paginator import Paginator
-from restaurants.models import Restaurant, MenuItem, MenuCategory
-from orders.models import Order
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+import json
+
 from users.models import CustomUser
-import uuid
+from restaurants.models import Restaurant
+from orders.models import Order
+
 
 def home(request):
-    """Home page view"""
+    """
+    Home page view
+    """
     return render(request, 'home.html')
 
+
 def login_view(request):
-    """Login page view"""
-    if request.user.is_authenticated:
-        return redirect('webapp:dashboard')
+    """
+    Login page view
+    """
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        
+        user = authenticate(request, username=email, password=password)
+        if user is not None:
+            login(request, user)
+            
+            # Redirect based on user role
+            if user.role == 'RESTAURANT':
+                return redirect('webapp:restaurant_dashboard')
+            elif user.role == 'DRIVER':
+                return redirect('webapp:driver_dashboard')
+            elif user.role == 'CUSTOMER':
+                return redirect('webapp:customer_dashboard')
+            elif user.role == 'ADMIN':
+                return redirect('webapp:admin_dashboard')
+            else:
+                return redirect('webapp:home')
+        else:
+            messages.error(request, 'Invalid email or password')
+    
     return render(request, 'login.html')
 
-def register_view(request):
-    """Registration page view"""
-    if request.user.is_authenticated:
-        return redirect('webapp:dashboard')
-    return render(request, 'register.html')
+
+def logout_view(request):
+    """
+    Logout view
+    """
+    logout(request)
+    return redirect('webapp:home')
+
 
 @login_required
 def profile_view(request):
-    """User profile page view"""
-    return render(request, 'profile.html')
+    """
+    User profile view
+    """
+    return render(request, 'profile.html', {'user': request.user})
+
+
+class RestaurantDashboardView(LoginRequiredMixin, TemplateView):
+    """
+    Restaurant dashboard view
+    """
+    template_name = 'dashboards/restaurant_dashboard_new.html'
+    
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.role == 'RESTAURANT':
+            messages.error(request, 'Access denied. Restaurant account required.')
+            return redirect('webapp:home')
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # Get restaurant data
+        try:
+            restaurant = user.restaurant
+            context['restaurant'] = restaurant
+            
+            # Get recent orders
+            recent_orders = Order.objects.filter(restaurant=restaurant).order_by('-created_at')[:10]
+            context['recent_orders'] = recent_orders
+            
+            # Get basic stats
+            context['stats'] = {
+                'total_orders': Order.objects.filter(restaurant=restaurant).count(),
+                'pending_orders': Order.objects.filter(restaurant=restaurant, status='PLACED').count(),
+                'menu_items': restaurant.menu_items.count(),
+            }
+        except AttributeError:
+            context['restaurant'] = None
+            messages.warning(self.request, 'No restaurant profile found. Please contact support.')
+        
+        return context
+
+
+class CustomerDashboardView(LoginRequiredMixin, TemplateView):
+    """
+    Customer dashboard view
+    """
+    template_name = 'dashboards/customer_dashboard.html'
+    
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.role == 'CUSTOMER':
+            messages.error(request, 'Access denied. Customer account required.')
+            return redirect('webapp:home')
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # Get customer orders
+        recent_orders = Order.objects.filter(customer=user).order_by('-created_at')[:5]
+        context['recent_orders'] = recent_orders
+        
+        # Get favorite restaurants (based on order history)
+        favorite_restaurants = Restaurant.objects.filter(
+            orders__customer=user
+        ).distinct()[:5]
+        context['favorite_restaurants'] = favorite_restaurants
+        
+        return context
+
+
+class DriverDashboardView(LoginRequiredMixin, TemplateView):
+    """
+    Driver dashboard view
+    """
+    template_name = 'dashboards/driver_dashboard.html'
+    
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.role == 'DRIVER':
+            messages.error(request, 'Access denied. Driver account required.')
+            return redirect('webapp:home')
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # Get driver data
+        try:
+            driver_profile = user.driver_profile
+            context['driver_profile'] = driver_profile
+            
+            # Get active tasks
+            from drivers.models import DriverTask
+            active_tasks = DriverTask.objects.filter(
+                driver=driver_profile,
+                status__in=['PENDING', 'ACCEPTED', 'PICKED_UP']
+            ).order_by('-assigned_at')
+            context['active_tasks'] = active_tasks
+            
+            # Get recent earnings
+            recent_earnings = driver_profile.earnings.order_by('-timestamp')[:10]
+            context['recent_earnings'] = recent_earnings
+            
+        except AttributeError:
+            context['driver_profile'] = None
+            messages.warning(self.request, 'No driver profile found. Please contact support.')
+        
+        return context
+
 
 @login_required
-def dashboard_view(request):
-    """Main dashboard redirect based on user role"""
-    user = request.user
-    
-    if user.role == 'CUSTOMER':
-        return redirect('webapp:customer_dashboard')
-    elif user.role == 'RESTAURANT':
-        return redirect('webapp:restaurant_dashboard')
-    elif user.role == 'DRIVER':
-        return redirect('webapp:driver_dashboard')
-    elif user.role == 'ADMIN':
-        return redirect('webapp:restaurant_dashboard')  # Admin can access restaurant dashboard
-    else:
-        return redirect('webapp:home')
-
-@login_required
-def customer_dashboard(request):
-    """Customer dashboard view"""
-    if request.user.role not in ['CUSTOMER', 'ADMIN']:
+def restaurant_orders_view(request):
+    """
+    Restaurant orders management view
+    """
+    if request.user.role != 'RESTAURANT':
+        messages.error(request, 'Access denied.')
         return redirect('webapp:home')
     
-    return render(request, 'dashboards/customer_dashboard.html')
-
-@login_required
-def restaurant_dashboard(request):
-    """Restaurant dashboard view - Modern UI"""
-    if request.user.role not in ['RESTAURANT', 'ADMIN']:
-        return redirect('webapp:home')
-    
-    context = {
-        'user': request.user,
-        'page_title': 'Restaurant Dashboard'
-    }
-    
-    return render(request, 'dashboards/modern_restaurant_dashboard.html', context)
-
-@login_required
-def restaurant_dashboard_new(request):
-    """New Restaurant dashboard view - Modular UI"""
-    if request.user.role not in ['RESTAURANT', 'ADMIN']:
-        return redirect('webapp:home')
-    
-    context = {
-        'user': request.user,
-        'page_title': 'Restaurant Dashboard'
-    }
-    
-    return render(request, 'dashboards/restaurant_dashboard_new.html', context)
-
-@login_required
-def driver_dashboard(request):
-    """Driver dashboard view"""
-    if request.user.role not in ['DRIVER', 'ADMIN']:
-        return redirect('webapp:home')
-    
-    return render(request, 'dashboards/driver_dashboard.html')
-
-def restaurant_list(request):
-    """List all restaurants"""
-    return render(request, 'restaurants/restaurant_list.html')
-
-def restaurant_detail(request, restaurant_id):
-    """Restaurant detail view with menu"""
     try:
-        restaurant = Restaurant.objects.get(id=restaurant_id)
-    except Restaurant.DoesNotExist:
-        messages.error(request, 'Restaurant not found.')
-        return redirect('webapp:restaurant_list')
+        restaurant = request.user.restaurant
+        orders = Order.objects.filter(restaurant=restaurant).order_by('-created_at')
+        
+        # Filter by status if provided
+        status_filter = request.GET.get('status')
+        if status_filter:
+            orders = orders.filter(status=status_filter)
+        
+        context = {
+            'restaurant': restaurant,
+            'orders': orders,
+            'status_filter': status_filter,
+        }
+        return render(request, 'restaurants/restaurant_orders.html', context)
     
-    context = {
-        'restaurant': restaurant,
-        'restaurant_id': restaurant_id
-    }
-    return render(request, 'restaurants/restaurant_detail.html', context)
+    except AttributeError:
+        messages.error(request, 'No restaurant profile found.')
+        return redirect('webapp:restaurant_dashboard')
+
 
 @login_required
-def customer_order_list(request):
-    """Customer's order history"""
-    if request.user.role not in ['CUSTOMER', 'ADMIN']:
+def restaurant_menu_view(request):
+    """
+    Restaurant menu management view
+    """
+    if request.user.role != 'RESTAURANT':
+        messages.error(request, 'Access denied.')
+        return redirect('webapp:home')
+    
+    try:
+        restaurant = request.user.restaurant
+        menu_items = restaurant.menu_items.all().order_by('category', 'name')
+        categories = restaurant.menu_categories.all().order_by('order', 'name')
+        
+        context = {
+            'restaurant': restaurant,
+            'menu_items': menu_items,
+            'categories': categories,
+        }
+        return render(request, 'restaurants/manage_menu.html', context)
+    
+    except AttributeError:
+        messages.error(request, 'No restaurant profile found.')
+        return redirect('webapp:restaurant_dashboard')
+
+
+@login_required
+def customer_orders_view(request):
+    """
+    Customer order history view
+    """
+    if request.user.role != 'CUSTOMER':
+        messages.error(request, 'Access denied.')
         return redirect('webapp:home')
     
     orders = Order.objects.filter(customer=request.user).order_by('-created_at')
     
-    # Pagination
-    paginator = Paginator(orders, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
     context = {
-        'orders': page_obj,
-        'page_obj': page_obj
+        'orders': orders,
     }
     return render(request, 'orders/customer_order_list.html', context)
 
-@login_required
-def manage_restaurant(request):
-    """Manage restaurant details"""
-    if request.user.role not in ['RESTAURANT', 'ADMIN']:
-        return redirect('webapp:home')
-    
-    return render(request, 'restaurants/manage_restaurant.html')
 
 @login_required
-def restaurant_orders(request):
-    """Restaurant order management"""
-    if request.user.role not in ['RESTAURANT', 'ADMIN']:
-        return redirect('webapp:home')
-    
-    return render(request, 'restaurants/restaurant_orders.html')
-
-@login_required
-def menu_management(request):
-    """Menu management page"""
-    if request.user.role not in ['RESTAURANT', 'ADMIN']:
-        return redirect('webapp:home')
-    
-    return render(request, 'restaurants/manage_menu.html')
-
-@login_required
-def menu_category_create(request):
-    """Create new menu category"""
-    if request.user.role not in ['RESTAURANT', 'ADMIN']:
-        return redirect('webapp:home')
-    
-    context = {
-        'form_type': 'Add New Category',
-        'category_id': None
-    }
-    return render(request, 'restaurants/category_form.html', context)
-
-@login_required
-def menu_category_edit(request, category_id):
-    """Edit menu category"""
-    if request.user.role not in ['RESTAURANT', 'ADMIN']:
+def driver_tasks_view(request):
+    """
+    Driver tasks view
+    """
+    if request.user.role != 'DRIVER':
+        messages.error(request, 'Access denied.')
         return redirect('webapp:home')
     
     try:
-        category = MenuCategory.objects.get(id=category_id)
-        # Check if user owns this category's restaurant
-        if request.user.role == 'RESTAURANT' and category.restaurant.user != request.user:
-            messages.error(request, 'You can only edit your own categories.')
-            return redirect('webapp:menu_management')
-    except MenuCategory.DoesNotExist:
-        messages.error(request, 'Category not found.')
-        return redirect('webapp:menu_management')
+        driver_profile = request.user.driver_profile
+        from drivers.models import DriverTask
+        
+        tasks = DriverTask.objects.filter(driver=driver_profile).order_by('-assigned_at')
+        
+        context = {
+            'driver_profile': driver_profile,
+            'tasks': tasks,
+        }
+        return render(request, 'drivers/task_list.html', context)
     
-    context = {
-        'form_type': 'Edit Category',
-        'category_id': category_id,
-        'category': category
-    }
-    return render(request, 'restaurants/category_form.html', context)
+    except AttributeError:
+        messages.error(request, 'No driver profile found.')
+        return redirect('webapp:driver_dashboard')
+
 
 @login_required
-def menu_item_create(request, category_id=None):
-    """Create new menu item"""
-    if request.user.role not in ['RESTAURANT', 'ADMIN']:
-        return redirect('webapp:home')
-    
-    context = {
-        'form_type': 'Add New Menu Item',
-        'item_id': None,
-        'category_id': category_id
-    }
-    return render(request, 'restaurants/menu_item_form.html', context)
-
-@login_required
-def menu_item_edit(request, item_id):
-    """Edit menu item"""
-    if request.user.role not in ['RESTAURANT', 'ADMIN']:
+def driver_earnings_view(request):
+    """
+    Driver earnings view
+    """
+    if request.user.role != 'DRIVER':
+        messages.error(request, 'Access denied.')
         return redirect('webapp:home')
     
     try:
-        item = MenuItem.objects.get(id=item_id)
-        # Check if user owns this item's restaurant
-        if request.user.role == 'RESTAURANT' and item.restaurant.user != request.user:
-            messages.error(request, 'You can only edit your own menu items.')
-            return redirect('webapp:menu_management')
-    except MenuItem.DoesNotExist:
-        messages.error(request, 'Menu item not found.')
-        return redirect('webapp:menu_management')
+        driver_profile = request.user.driver_profile
+        earnings = driver_profile.earnings.order_by('-timestamp')
+        
+        context = {
+            'driver_profile': driver_profile,
+            'earnings': earnings,
+        }
+        return render(request, 'drivers/earnings_report.html', context)
+    
+    except AttributeError:
+        messages.error(request, 'No driver profile found.')
+        return redirect('webapp:driver_dashboard')
+
+
+def restaurant_list_view(request):
+    """
+    Public restaurant list view
+    """
+    restaurants = Restaurant.objects.filter(is_open=True)
+    
+    # Filter by search query
+    search_query = request.GET.get('search')
+    if search_query:
+        restaurants = restaurants.filter(name__icontains=search_query)
     
     context = {
-        'form_type': 'Edit Menu Item',
-        'item_id': item_id,
-        'item': item
+        'restaurants': restaurants,
+        'search_query': search_query,
     }
-    return render(request, 'restaurants/menu_item_form.html', context)
+    return render(request, 'restaurants/restaurant_list.html', context)
 
-@login_required
-def driver_task_list(request):
-    """Driver task list"""
-    if request.user.role not in ['DRIVER', 'ADMIN']:
-        return redirect('webapp:home')
-    
-    return render(request, 'drivers/task_list.html')
 
-@login_required
-def driver_earnings_report(request):
-    """Driver earnings report"""
-    if request.user.role not in ['DRIVER', 'ADMIN']:
-        return redirect('webapp:home')
-    
-    return render(request, 'drivers/earnings_report.html')
-
-# API-like views for AJAX requests (optional, can use DRF instead)
-@login_required
-@require_http_methods(["GET"])
-def api_restaurant_stats(request, restaurant_id):
-    """Get restaurant statistics for dashboard"""
-    if request.user.role not in ['RESTAURANT', 'ADMIN']:
-        return JsonResponse({'error': 'Permission denied'}, status=403)
-    
+def restaurant_detail_view(request, restaurant_id):
+    """
+    Restaurant detail view with menu
+    """
     try:
         restaurant = Restaurant.objects.get(id=restaurant_id)
-        if request.user.role == 'RESTAURANT' and restaurant.user != request.user:
-            return JsonResponse({'error': 'Permission denied'}, status=403)
+        menu_categories = restaurant.menu_categories.prefetch_related('items').order_by('order', 'name')
         
-        # Get statistics
-        total_orders = Order.objects.filter(restaurant=restaurant).count()
-        delivered_orders = Order.objects.filter(restaurant=restaurant, status='DELIVERED').count()
-        cancelled_orders = Order.objects.filter(restaurant=restaurant, status='CANCELLED').count()
-        
-        # Calculate revenue (simplified)
-        total_revenue = sum(
-            order.total_price for order in Order.objects.filter(
-                restaurant=restaurant, 
-                status='DELIVERED'
-            )
-        )
-        
-        stats = {
-            'total_orders': total_orders,
-            'delivered_orders': delivered_orders,
-            'cancelled_orders': cancelled_orders,
-            'total_revenue': float(total_revenue),
-            'restaurant_name': restaurant.name
+        context = {
+            'restaurant': restaurant,
+            'menu_categories': menu_categories,
         }
-        
-        return JsonResponse(stats)
-        
+        return render(request, 'restaurants/restaurant_detail.html', context)
+    
     except Restaurant.DoesNotExist:
-        return JsonResponse({'error': 'Restaurant not found'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        messages.error(request, 'Restaurant not found.')
+        return redirect('webapp:restaurant_list')
+
+
+# API endpoints for AJAX calls
+@csrf_exempt
+@login_required
+def ajax_update_order_status(request):
+    """
+    AJAX endpoint to update order status
+    """
+    if request.method == 'POST' and request.user.role == 'RESTAURANT':
+        try:
+            data = json.loads(request.body)
+            order_id = data.get('order_id')
+            new_status = data.get('status')
+            
+            order = Order.objects.get(id=order_id, restaurant=request.user.restaurant)
+            order.status = new_status
+            order.save()
+            
+            return JsonResponse({'success': True, 'message': 'Order status updated'})
+        
+        except (Order.DoesNotExist, json.JSONDecodeError, KeyError):
+            return JsonResponse({'success': False, 'message': 'Invalid request'})
+    
+    return JsonResponse({'success': False, 'message': 'Method not allowed'})
+
+
+@csrf_exempt
+@login_required
+def ajax_driver_update_location(request):
+    """
+    AJAX endpoint for driver location updates
+    """
+    if request.method == 'POST' and request.user.role == 'DRIVER':
+        try:
+            data = json.loads(request.body)
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+            
+            # Save location to database
+            from drivers.models import DriverLocation
+            DriverLocation.objects.create(
+                driver=request.user.driver_profile,
+                latitude=latitude,
+                longitude=longitude
+            )
+            
+            return JsonResponse({'success': True, 'message': 'Location updated'})
+        
+        except (json.JSONDecodeError, KeyError):
+            return JsonResponse({'success': False, 'message': 'Invalid request'})
+    
+    return JsonResponse({'success': False, 'message': 'Method not allowed'})
+
+
+def register_view(request):
+    """
+    User registration view
+    """
+    if request.method == 'POST':
+        # Handle registration form
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        full_name = request.POST.get('full_name')
+        role = request.POST.get('role', 'CUSTOMER')
+        
+        try:
+            # Create user
+            user = CustomUser.objects.create_user(
+                email=email,
+                password=password,
+                full_name=full_name,
+                role=role
+            )
+            
+            messages.success(request, 'Account created successfully! Please log in.')
+            return redirect('webapp:login')
+        
+        except Exception as e:
+            messages.error(request, f'Registration failed: {str(e)}')
+    
+    return render(request, 'register.html')
+
+
+@login_required
+def admin_dashboard_view(request):
+    """
+    Admin dashboard view
+    """
+    if not request.user.is_staff and request.user.role != 'ADMIN':
+        messages.error(request, 'Access denied. Admin privileges required.')
+        return redirect('webapp:home')
+    
+    # Get platform statistics
+    total_users = CustomUser.objects.count()
+    total_restaurants = Restaurant.objects.count()
+    total_orders = Order.objects.count()
+    pending_orders = Order.objects.filter(status='PLACED').count()
+    
+    # Recent activity
+    recent_orders = Order.objects.order_by('-created_at')[:10]
+    recent_users = CustomUser.objects.order_by('-date_joined')[:10]
+    
+    context = {
+        'stats': {
+            'total_users': total_users,
+            'total_restaurants': total_restaurants,
+            'total_orders': total_orders,
+            'pending_orders': pending_orders,
+        },
+        'recent_orders': recent_orders,
+        'recent_users': recent_users,
+    }
+    
+    return render(request, 'dashboards/admin_dashboard.html', context)
