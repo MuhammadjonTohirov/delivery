@@ -33,17 +33,17 @@ class OrderPermission(permissions.BasePermission):
             return True
         
         # Customer can only view their own orders
-        if request.user.role == 'CUSTOMER':
+        if request.user.is_customer():
             return obj.customer == request.user
         
         # Restaurant owner can view orders for their restaurant
-        if request.user.role == 'RESTAURANT':
+        if request.user.is_restaurant_owner():
             if hasattr(request.user, 'restaurant'):
                 return obj.restaurant == request.user.restaurant
             return False
         
         # Driver can view orders assigned to them
-        if request.user.role == 'DRIVER':
+        if request.user.is_driver():
             if hasattr(request.user, 'driver_profile'):
                 # Check if driver is assigned to this order
                 try:
@@ -56,11 +56,11 @@ class OrderPermission(permissions.BasePermission):
 
 
 @extend_schema_view(
-    list=extend_schema(summary="List orders", description="Get a list of orders based on user role"),
-    retrieve=extend_schema(summary="Get order details", description="Retrieve detailed information about a specific order"),
-    create=extend_schema(summary="Create order", description="Create a new order (Customer only)"),
-    update=extend_schema(summary="Update order", description="Update order details"),
-    partial_update=extend_schema(summary="Partial update order", description="Partially update order details"),
+    list=extend_schema(summary="List orders", description="Get a list of orders based on user role", tags=['Core Business Operations']),
+    retrieve=extend_schema(summary="Get order details", description="Retrieve detailed information about a specific order", tags=['Core Business Operations']),
+    create=extend_schema(summary="Create order", description="Create a new order (Customer only)", tags=['Core Business Operations']),
+    update=extend_schema(summary="Update order", description="Update order details", tags=['Core Business Operations']),
+    partial_update=extend_schema(summary="Partial update order", description="Partially update order details", tags=['Core Business Operations']),
 )
 class OrderViewSet(viewsets.ModelViewSet):
     """
@@ -75,6 +75,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'updated_at', 'total_price']
     ordering = ['-created_at']
     permission_classes = [OrderPermission]
+    tags = ['Core Business Operations']
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -89,11 +90,11 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         if user.is_staff:
             qs = Order.objects.all().select_related('customer', 'restaurant')
-        elif user.role == 'CUSTOMER':
+        elif user.is_customer() and not (user.is_restaurant_owner() or user.is_driver()):
             qs = Order.objects.filter(customer=user).select_related('customer', 'restaurant')
-        elif user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+        elif user.is_restaurant_owner() and hasattr(user, 'restaurant'):
             qs = Order.objects.filter(restaurant=user.restaurant).select_related('customer', 'restaurant')
-        elif user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        elif user.is_driver() and hasattr(user, 'driver_profile'):
             qs = Order.objects.filter(driver_task__driver__user=user).select_related('customer', 'restaurant')
         
         # If qs is still Order.objects.none(), no need to apply further optimizations

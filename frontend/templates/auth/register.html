@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+
+{% block title %}Register - Delivery Platform{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-center">Register</h3>
+                </div>
+                <div class="card-body">
+                    <form id="registerForm" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Email -->
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email Address *</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        
+                        <!-- Full Name -->
+                        <div class="mb-3">
+                            <label for="full_name" class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" id="full_name" name="full_name" required>
+                        </div>
+                        
+                        <!-- Phone -->
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone" name="phone">
+                        </div>
+                        
+                        <!-- Avatar Upload -->
+                        <div class="mb-3">
+                            <label for="avatar" class="form-label">Profile Picture (Optional)</label>
+                            <input type="file" class="form-control" id="avatar" name="avatar" accept="image/*">
+                            <div class="form-text">Upload a profile picture (JPG, PNG, GIF). Max size: 5MB</div>
+                            <div id="avatar-preview" class="mt-2" style="display: none;">
+                                <img id="avatar-img" src="" alt="Avatar Preview" style="max-width: 150px; max-height: 150px; border-radius: 50%;">
+                            </div>
+                        </div>
+                        
+                        <!-- Role -->
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Role *</label>
+                            <select class="form-control" id="role" name="role" required>
+                                <option value="CUSTOMER">Customer</option>
+                                <option value="DRIVER">Driver</option>
+                                <option value="RESTAURANT">Restaurant Owner</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Restaurant Profile Fields (shown only for restaurant role) -->
+                        <div id="restaurant-fields" style="display: none;">
+                            <div class="mb-3">
+                                <label for="business_name" class="form-label">Business Name *</label>
+                                <input type="text" class="form-control" id="business_name" name="business_name">
+                            </div>
+                            <div class="mb-3">
+                                <label for="business_address" class="form-label">Business Address *</label>
+                                <textarea class="form-control" id="business_address" name="business_address" rows="3"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="business_registration_number" class="form-label">Business Registration Number</label>
+                                <input type="text" class="form-control" id="business_registration_number" name="business_registration_number">
+                            </div>
+                        </div>
+                        
+                        <!-- Driver Profile Fields (shown only for driver role) -->
+                        <div id="driver-fields" style="display: none;">
+                            <div class="mb-3">
+                                <label for="vehicle_type" class="form-label">Vehicle Type</label>
+                                <input type="text" class="form-control" id="vehicle_type" name="vehicle_type" placeholder="e.g., Motorcycle, Car, Bicycle">
+                            </div>
+                            <div class="mb-3">
+                                <label for="license_number" class="form-label">License Number</label>
+                                <input type="text" class="form-control" id="license_number" name="license_number">
+                            </div>
+                        </div>
+                        
+                        <!-- Customer Profile Fields (shown only for customer role) -->
+                        <div id="customer-fields" style="display: block;">
+                            <div class="mb-3">
+                                <label for="default_address" class="form-label">Default Address</label>
+                                <textarea class="form-control" id="default_address" name="default_address" rows="2" placeholder="Your default delivery address"></textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- Password -->
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password *</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        
+                        <!-- Confirm Password -->
+                        <div class="mb-3">
+                            <label for="password_confirm" class="form-label">Confirm Password *</label>
+                            <input type="password" class="form-control" id="password_confirm" name="password_confirm" required>
+                        </div>
+                        
+                        <!-- Submit Button -->
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Register</button>
+                        </div>
+                        
+                        <!-- Error Messages -->
+                        <div id="error-messages" class="mt-3" style="display: none;">
+                            <div class="alert alert-danger" role="alert">
+                                <ul id="error-list" class="mb-0"></ul>
+                            </div>
+                        </div>
+                        
+                        <!-- Success Message -->
+                        <div id="success-message" class="mt-3" style="display: none;">
+                            <div class="alert alert-success" role="alert">
+                                Registration successful! You can now <a href="/login/">login</a>.
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <div class="text-center mt-3">
+                        <p>Already have an account? <a href="/login/">Login here</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const roleSelect = document.getElementById('role');
+    const restaurantFields = document.getElementById('restaurant-fields');
+    const driverFields = document.getElementById('driver-fields');
+    const customerFields = document.getElementById('customer-fields');
+    const avatarInput = document.getElementById('avatar');
+    const avatarPreview = document.getElementById('avatar-preview');
+    const avatarImg = document.getElementById('avatar-img');
+    const registerForm = document.getElementById('registerForm');
+    
+    // Handle role change
+    roleSelect.addEventListener('change', function() {
+        const role = this.value;
+        
+        // Hide all profile fields
+        restaurantFields.style.display = 'none';
+        driverFields.style.display = 'none';
+        customerFields.style.display = 'none';
+        
+        // Show relevant fields based on role
+        if (role === 'RESTAURANT') {
+            restaurantFields.style.display = 'block';
+        } else if (role === 'DRIVER') {
+            driverFields.style.display = 'block';
+        } else if (role === 'CUSTOMER') {
+            customerFields.style.display = 'block';
+        }
+    });
+    
+    // Handle avatar preview
+    avatarInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // Check file size (5MB limit)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB');
+                this.value = '';
+                avatarPreview.style.display = 'none';
+                return;
+            }
+            
+            // Check file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                this.value = '';
+                avatarPreview.style.display = 'none';
+                return;
+            }
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                avatarImg.src = e.target.result;
+                avatarPreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            avatarPreview.style.display = 'none';
+        }
+    });
+    
+    // Handle form submission
+    registerForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        const role = roleSelect.value;
+        
+        // Basic user data
+        formData.append('email', document.getElementById('email').value);
+        formData.append('full_name', document.getElementById('full_name').value);
+        formData.append('phone', document.getElementById('phone').value);
+        formData.append('role', role);
+        formData.append('password', document.getElementById('password').value);
+        formData.append('password_confirm', document.getElementById('password_confirm').value);
+        
+        // Avatar file
+        const avatarFile = avatarInput.files[0];
+        if (avatarFile) {
+            formData.append('avatar', avatarFile);
+        }
+        
+        // Role-specific profile data
+        if (role === 'RESTAURANT') {
+            const restaurantProfile = {
+                business_name: document.getElementById('business_name').value,
+                business_address: document.getElementById('business_address').value,
+                business_registration_number: document.getElementById('business_registration_number').value
+            };
+            formData.append('restaurant_profile', JSON.stringify(restaurantProfile));
+        } else if (role === 'DRIVER') {
+            const driverProfile = {
+                vehicle_type: document.getElementById('vehicle_type').value,
+                license_number: document.getElementById('license_number').value
+            };
+            formData.append('driver_profile', JSON.stringify(driverProfile));
+        } else if (role === 'CUSTOMER') {
+            const customerProfile = {
+                default_address: document.getElementById('default_address').value
+            };
+            formData.append('customer_profile', JSON.stringify(customerProfile));
+        }
+        
+        // Submit form
+        fetch('/api/users/register/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.id) {
+                // Success
+                document.getElementById('success-message').style.display = 'block';
+                document.getElementById('error-messages').style.display = 'none';
+                registerForm.reset();
+                avatarPreview.style.display = 'none';
+            } else {
+                // Error
+                displayErrors(data);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            displayErrors({error: ['An unexpected error occurred. Please try again.']});
+        });
+    });
+    
+    function displayErrors(errors) {
+        const errorList = document.getElementById('error-list');
+        const errorMessages = document.getElementById('error-messages');
+        
+        errorList.innerHTML = '';
+        
+        for (const [field, messages] of Object.entries(errors)) {
+            if (Array.isArray(messages)) {
+                messages.forEach(message => {
+                    const li = document.createElement('li');
+                    li.textContent = `${field}: ${message}`;
+                    errorList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = `${field}: ${messages}`;
+                errorList.appendChild(li);
+            }
+        }
+        
+        errorMessages.style.display = 'block';
+        document.getElementById('success-message').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

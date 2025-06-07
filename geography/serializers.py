@@ -88,7 +88,7 @@ class DeliveryRouteSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
-    def get_order_count(self, obj):
+    def get_order_count(self, obj) -> int:
         return obj.orders.count()
 
 

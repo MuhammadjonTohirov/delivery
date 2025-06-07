@@ -16,16 +16,24 @@ urlpatterns = [
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     
-    # API endpoints
-    path('api/users/', include('users.urls')),
+    # Authentication & User Management
+    path('api/auth/', include('users.urls')),
+    
+    # Core Business Operations
     path('api/restaurants/', include('restaurants.urls')),
     path('api/orders/', include('orders.urls')),
+    path('api/cart/', include('cart.urls')),
+    
+    # Delivery & Logistics
     path('api/drivers/', include('drivers.urls')),
+    path('api/geography/', include('geography.urls')),
+    
+    # Financial Operations
     path('api/payments/', include('payments.urls')),
     path('api/promotions/', include('promotions.urls')),
+    
+    # Communication & Analytics
     path('api/notifications/', include('notifications.urls')),
-    path('api/geography/', include('geography.urls')),
-    path('api/cart/', include('cart.urls')),
     path('api/analytics/', include('analytics.urls')),
     
     # Frontend URLs

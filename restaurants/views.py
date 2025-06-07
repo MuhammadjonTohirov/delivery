@@ -29,11 +29,11 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 
 
 @extend_schema_view(
-    list=extend_schema(summary="List all restaurants", description="Get a list of all active restaurants"),
-    retrieve=extend_schema(summary="Get restaurant details", description="Retrieve detailed information about a specific restaurant"),
-    create=extend_schema(summary="Create restaurant", description="Create a new restaurant (Restaurant user only)"),
-    update=extend_schema(summary="Update restaurant", description="Update restaurant details (Restaurant owner only)"),
-    partial_update=extend_schema(summary="Partial update restaurant", description="Partially update restaurant details (Restaurant owner only)"),
+    list=extend_schema(summary="List all restaurants", description="Get a list of all active restaurants", tags=['Core Business Operations']),
+    retrieve=extend_schema(summary="Get restaurant details", description="Retrieve detailed information about a specific restaurant", tags=['Core Business Operations']),
+    create=extend_schema(summary="Create restaurant", description="Create a new restaurant (Restaurant user only)", tags=['Core Business Operations']),
+    update=extend_schema(summary="Update restaurant", description="Update restaurant details (Restaurant owner only)", tags=['Core Business Operations']),
+    partial_update=extend_schema(summary="Partial update restaurant", description="Partially update restaurant details (Restaurant owner only)", tags=['Core Business Operations']),
 )
 class RestaurantViewSet(viewsets.ModelViewSet):
     """
@@ -43,6 +43,7 @@ class RestaurantViewSet(viewsets.ModelViewSet):
     filterset_fields = ['is_open']
     search_fields = ['name', 'address', 'description']
     ordering_fields = ['name', 'created_at']
+    tags = ['Core Business Operations']
 
     def get_queryset(self):
         queryset = Restaurant.objects.all()
@@ -205,7 +206,7 @@ class MenuCategoryViewSet(viewsets.ModelViewSet):
             if 'restaurant' not in serializer.validated_data:
                 raise ValidationError({"restaurant": "Restaurant must be specified for admin creation."})
             serializer.save()
-        elif self.request.user.role == 'RESTAURANT' and hasattr(self.request.user, 'restaurant'):
+        elif self.request.user.is_restaurant_owner() and hasattr(self.request.user, 'restaurant'):
             serializer.save(restaurant=self.request.user.restaurant)
         else:
             raise PermissionDenied("You do not have permission to create this resource.")
@@ -259,7 +260,7 @@ class MenuItemViewSet(viewsets.ModelViewSet):
             if 'restaurant' not in serializer.validated_data:
                 raise ValidationError({"restaurant": "Restaurant must be specified for admin creation."})
             serializer.save()
-        elif self.request.user.role == 'RESTAURANT' and hasattr(self.request.user, 'restaurant'):
+        elif self.request.user.is_restaurant_owner() and hasattr(self.request.user, 'restaurant'):
             # Validate that category belongs to the restaurant if provided
             category = serializer.validated_data.get('category')
             if category and category.restaurant != self.request.user.restaurant:

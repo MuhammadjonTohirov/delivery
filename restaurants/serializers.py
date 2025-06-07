@@ -102,7 +102,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
             'average_rating', 'owner_name'
         ]
     
-    def get_average_rating(self, obj):
+    def get_average_rating(self, obj) -> float | None:
         """
         Retrieve the pre-calculated average rating from the annotated field.
         """
@@ -126,7 +126,7 @@ class RestaurantListSerializer(serializers.ModelSerializer):
             'is_open', 'average_rating', 'owner_name'
         ]
     
-    def get_average_rating(self, obj):
+    def get_average_rating(self, obj) -> float | None:
         """
         Calculate the average rating for the restaurant.
         """

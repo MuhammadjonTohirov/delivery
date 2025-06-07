@@ -91,11 +91,11 @@ class SavedCartSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'user', 'times_reordered', 'last_ordered', 'created_at', 'updated_at']
     
-    def get_items_count(self, obj):
+    def get_items_count(self, obj) -> int:
         """Get total number of items in saved cart"""
         return len(obj.cart_data.get('items', []))
     
-    def get_estimated_total(self, obj):
+    def get_estimated_total(self, obj) -> str:
         """Get estimated total from saved cart data"""
         return obj.cart_data.get('subtotal', '0.00')
     

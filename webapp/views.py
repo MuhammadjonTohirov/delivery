@@ -12,6 +12,13 @@ def index(request):
     return render(request, 'index.html')
 
 
+def register(request):
+    """
+    Registration page
+    """
+    return render(request, 'auth/register.html')
+
+
 # Keep minimal AJAX endpoints for backwards compatibility
 @csrf_exempt
 @login_required
@@ -19,7 +26,7 @@ def ajax_update_order_status(request):
     """
     AJAX endpoint to update order status
     """
-    if request.method == 'POST' and request.user.role == 'RESTAURANT':
+    if request.method == 'POST' and request.user.is_restaurant_owner():
         try:
             from orders.models import Order
             
@@ -45,7 +52,7 @@ def ajax_driver_update_location(request):
     """
     AJAX endpoint for driver location updates
     """
-    if request.method == 'POST' and request.user.role == 'DRIVER':
+    if request.method == 'POST' and request.user.is_driver():
         try:
             from drivers.models import DriverLocation
             

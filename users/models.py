@@ -3,6 +3,17 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 import uuid
+import os
+
+
+def user_avatar_upload_path(instance, filename):
+    """Generate upload path for user avatars"""
+    # Get file extension
+    ext = filename.split('.')[-1]
+    # Create filename using user ID
+    filename = f'{instance.id}.{ext}'
+    # Return the upload path
+    return os.path.join('avatars', filename)
 
 
 class CustomUserManager(BaseUserManager):
@@ -19,7 +30,6 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
-        extra_fields.setdefault('role', 'ADMIN')
         
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
@@ -30,18 +40,11 @@ class CustomUserManager(BaseUserManager):
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    ROLE_CHOICES = (
-        ('CUSTOMER', 'Customer'),
-        ('DRIVER', 'Driver'),
-        ('RESTAURANT', 'Restaurant Owner'),
-        ('ADMIN', 'Administrator'),
-    )
-    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(_('email address'), unique=True)
     phone = models.CharField(_('phone number'), max_length=15, blank=True, null=True)
     full_name = models.CharField(_('full name'), max_length=150)
-    role = models.CharField(_('user role'), max_length=15, choices=ROLE_CHOICES, default='CUSTOMER')
+    avatar = models.ImageField(_('profile avatar'), upload_to=user_avatar_upload_path, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
@@ -58,6 +61,22 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         
     def __str__(self):
         return f"{self.full_name} ({self.email})"
+    
+    def is_restaurant_owner(self):
+        """Check if user is a restaurant owner by checking if they have a restaurant"""
+        return hasattr(self, 'restaurant')
+    
+    def is_driver(self):
+        """Check if user is a driver by checking if they have a driver profile"""
+        return hasattr(self, 'driver_profile')
+    
+    def is_customer(self):
+        """All users are customers by default"""
+        return True
+    
+    def is_admin_user(self):
+        """Check if user is admin using Django's built-in staff/superuser flags"""
+        return self.is_staff or self.is_superuser
 
 
 class CustomerProfile(models.Model):

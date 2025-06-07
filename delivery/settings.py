@@ -15,7 +15,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-for-developmen
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,192.168.1.78,0.0.0.0,testserver').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -186,6 +186,31 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
     'SCHEMA_PATH_PREFIX': r'/api/v[0-9]',
+    'TAGS': [
+        {
+            'name': 'Authentication & User Management',
+            'description': 'User authentication, registration, profile management, and user role operations'
+        },
+        {
+            'name': 'Core Business Operations',
+            'description': 'Restaurant management, menu items, orders, and shopping cart functionality'
+        },
+        {
+            'name': 'Delivery & Logistics',
+            'description': 'Driver management, location tracking, and delivery route optimization'
+        },
+        {
+            'name': 'Financial Operations',
+            'description': 'Payment processing, transaction management, and promotional campaigns'
+        },
+        {
+            'name': 'Communication & Analytics',
+            'description': 'Notifications, messaging, and business analytics & reporting'
+        },
+    ],
+    'PREPROCESSING_HOOKS': [
+        'delivery.schema_hooks.custom_preprocessing_hook',
+    ],
 }
 
 # Rate limiting

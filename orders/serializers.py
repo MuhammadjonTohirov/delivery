@@ -156,5 +156,5 @@ class OrderListSerializer(serializers.ModelSerializer):
                   'delivery_address', 'notes', # Added fields
                   'total_price', 'created_at', 'item_count', 'items'] # Added items
 
-    def get_item_count(self, obj):
+    def get_item_count(self, obj) -> int:
         return obj.items.count()

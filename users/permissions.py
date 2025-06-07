@@ -8,7 +8,7 @@ class IsOwnerOrAdmin(permissions.BasePermission):
     
     def has_object_permission(self, request, view, obj):
         # Admin permissions
-        if request.user.is_staff:
+        if request.user.is_staff or request.user.is_admin_user():
             return True
             
         # Check if the object has a user attribute
@@ -25,7 +25,7 @@ class IsCustomer(permissions.BasePermission):
     """
     
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'CUSTOMER'
+        return request.user and request.user.is_authenticated and request.user.is_customer()
 
 
 class IsDriver(permissions.BasePermission):
@@ -34,7 +34,7 @@ class IsDriver(permissions.BasePermission):
     """
     
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'DRIVER'
+        return request.user and request.user.is_authenticated and request.user.is_driver()
 
 
 class IsRestaurantOwner(permissions.BasePermission):
@@ -43,7 +43,7 @@ class IsRestaurantOwner(permissions.BasePermission):
     """
     
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'RESTAURANT'
+        return request.user and request.user.is_authenticated and request.user.is_restaurant_owner()
 
 
 class IsAdminUser(permissions.BasePermission):
@@ -52,4 +52,15 @@ class IsAdminUser(permissions.BasePermission):
     """
     
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'ADMIN'
+        return request.user and request.user.is_authenticated and request.user.is_admin_user()
+
+
+class IsCustomerOrRestaurantOwner(permissions.BasePermission):
+    """
+    Permission check for users who can be either customers or restaurant owners.
+    Useful for features that both customers and restaurant owners can access.
+    """
+    
+    def has_permission(self, request, view):
+        return (request.user and request.user.is_authenticated and
+                (request.user.is_customer() or request.user.is_restaurant_owner()))

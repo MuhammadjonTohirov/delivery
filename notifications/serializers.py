@@ -25,7 +25,7 @@ class NotificationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'recipient', 'created_at', 'updated_at']
     
-    def get_time_ago(self, obj):
+    def get_time_ago(self, obj) -> str:
         """
         Get human-readable time since notification was created
         """
