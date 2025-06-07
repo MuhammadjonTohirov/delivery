@@ -4,41 +4,10 @@ from . import views
 app_name = 'webapp'
 
 urlpatterns = [
-    # Public pages
-    path('', views.home, name='home'),
-    path('login/', views.login_view, name='login'),
-    path('logout/', views.logout_view, name='logout'),
-    path('register/', views.register_view, name='register'),
-    path('profile/', views.profile_view, name='profile'),
+    # Main index page
+    path('', views.index, name='index'),
     
-    # Restaurant public pages
-    path('restaurants/', views.restaurant_list_view, name='restaurant_list'),
-    path('restaurants/<uuid:restaurant_id>/', views.restaurant_detail_view, name='restaurant_detail'),
-    
-    # Dashboard pages
-    path('dashboard/restaurant/', views.RestaurantDashboardView.as_view(), name='restaurant_dashboard'),
-    path('dashboard/customer/', views.CustomerDashboardView.as_view(), name='customer_dashboard'),
-    path('dashboard/driver/', views.DriverDashboardView.as_view(), name='driver_dashboard'),
-    path('dashboard/admin/', views.admin_dashboard_view, name='admin_dashboard'),
-    
-    # Restaurant management
-    path('restaurant/orders/', views.restaurant_orders_view, name='restaurant_orders'),
-    path('restaurant/menu/', views.restaurant_menu_view, name='menu_management'),
-    path('restaurant/menu-page/', views.restaurant_menu_view, name='restaurant_menu'),
-    path('restaurant/manage/', views.restaurant_manage_view, name='manage_restaurant'),
-    path('restaurant/category/add/', views.category_form_view, name='category_form'),
-    path('restaurant/category/edit/<uuid:category_id>/', views.category_form_view, name='category_form_edit'),
-    path('restaurant/menu-item/add/', views.menu_item_form_view, name='menu_item_form'),
-    path('restaurant/menu-item/edit/<uuid:item_id>/', views.menu_item_form_view, name='menu_item_form_edit'),
-    
-    # Customer pages
-    path('customer/orders/', views.customer_orders_view, name='customer_orders'),
-    
-    # Driver pages
-    path('driver/tasks/', views.driver_tasks_view, name='driver_tasks'),
-    path('driver/earnings/', views.driver_earnings_view, name='driver_earnings'),
-    
-    # AJAX endpoints
+    # Keep minimal AJAX endpoints for backwards compatibility
     path('ajax/update-order-status/', views.ajax_update_order_status, name='ajax_update_order_status'),
     path('ajax/driver-location/', views.ajax_driver_update_location, name='ajax_driver_location'),
 ]

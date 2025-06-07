@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Welcome - Delivery Platform{% endblock %}
+
+{% block content %}
+<div id="home-container">
+    <h1>Welcome to Delivery Platform API</h1>
+    <p>This is a RESTful API for a food delivery platform.</p>
+    
+    <div class="api-links">
+        <h2>API Documentation</h2>
+        <ul>
+            <li><a href="/api/docs/" target="_blank">Swagger API Documentation</a></li>
+            <li><a href="/api/redoc/" target="_blank">ReDoc API Documentation</a></li>
+            <li><a href="/admin/" target="_blank">Django Admin Interface</a></li>
+        </ul>
+    </div>
+    
+    <div class="auth-section">
+        <h2>Authentication</h2>
+        <p>Use the API endpoints for authentication:</p>
+        <ul>
+            <li><code>POST /api/users/register/</code> - Register new user</li>
+            <li><code>POST /api/users/token/</code> - Login and get tokens</li>
+            <li><code>POST /api/users/token/refresh/</code> - Refresh access token</li>
+        </ul>
+    </div>
+    
+    <div class="api-endpoints">
+        <h2>Main API Endpoints</h2>
+        <ul>
+            <li><code>/api/users/</code> - User management</li>
+            <li><code>/api/restaurants/</code> - Restaurant operations</li>
+            <li><code>/api/orders/</code> - Order management</li>
+            <li><code>/api/drivers/</code> - Driver operations</li>
+            <li><code>/api/cart/</code> - Shopping cart</li>
+            <li><code>/api/analytics/</code> - Analytics and insights</li>
+            <li><code>/api/notifications/</code> - Notifications</li>
+            <li><code>/api/geography/</code> - Location services</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
