@@ -327,12 +327,13 @@ def dashboard_restaurants(request):
     """
     user = request.user
     
-    if not user.is_staff:
-        return Response(
-            {"error": "Only admin users can access this endpoint."},
-            status=status.HTTP_403_FORBIDDEN
-        )
+    if user.is_restaurant_owner():
+        restaurants = Restaurant.objects.filter(user=user).values('id', 'name').order_by('name')
+        return Response(list(restaurants))
     
-    restaurants = Restaurant.objects.all().values('id', 'name').order_by('name')
-    
-    return Response(list(restaurants))
+    if user.is_staff:  
+        restaurants = Restaurant.objects.all().values('id', 'name').order_by('name')
+        
+        return Response(list(restaurants))
+
+    return Response({"error": "Only admin users can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)

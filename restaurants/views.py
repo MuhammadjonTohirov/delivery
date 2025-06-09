@@ -48,6 +48,13 @@ class RestaurantViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = Restaurant.objects.all()
         
+        if self.request.user.is_restaurant_owner():
+            # If the user is a restaurant owner, filter to only their restaurant
+            queryset = queryset.filter(user=self.request.user)
+        elif self.request.user.is_superuser or self.request.user.is_staff:
+            # If the user is authenticated but not an owner, show all open restaurants
+            queryset = queryset.filter(is_open=True)
+        
         # Annotate with average rating for all operations
         queryset = queryset.annotate(average_rating_annotated=Avg('reviews__rating'))
         
@@ -86,12 +93,17 @@ class RestaurantViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def menu(self, request, pk=None):
         restaurant = self.get_object()
+        # Get categories that have items in this restaurant
         categories = MenuCategory.objects.filter(
-            restaurant=restaurant, 
+            items__restaurant=restaurant,
             is_active=True
-        ).prefetch_related('items')
+        ).distinct().prefetch_related('items').order_by('order', 'name')
         
-        serializer = MenuCategoryWithItemsSerializer(categories, many=True)
+        serializer = MenuCategoryWithItemsSerializer(
+            categories,
+            many=True,
+            context={'restaurant': restaurant}
+        )
         return Response(serializer.data)
     
     @extend_schema(
@@ -184,10 +196,11 @@ class RestaurantViewSet(viewsets.ModelViewSet):
 class MenuCategoryViewSet(viewsets.ModelViewSet):
     """
     ViewSet for MenuCategory model.
+    Categories are now global and can be used by all restaurants.
     """
     serializer_class = MenuCategorySerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['restaurant', 'is_active']
+    filterset_fields = ['is_active']
     ordering_fields = ['order', 'name', 'created_at']
     
     def get_queryset(self):
@@ -201,29 +214,28 @@ class MenuCategoryViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
     
     def perform_create(self, serializer):
-        if self.request.user.is_staff:
-            # Admin can create for any restaurant specified in payload
-            if 'restaurant' not in serializer.validated_data:
-                raise ValidationError({"restaurant": "Restaurant must be specified for admin creation."})
-            serializer.save()
-        elif self.request.user.is_restaurant_owner() and hasattr(self.request.user, 'restaurant'):
-            serializer.save(restaurant=self.request.user.restaurant)
-        else:
-            raise PermissionDenied("You do not have permission to create this resource.")
+        # Only staff can create global categories
+        if not self.request.user.is_staff:
+            raise PermissionDenied("Only administrators can create menu categories.")
+        serializer.save()
     
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsRestaurantOwnerOnly])
-    def my_categories(self, request):
-        """Get all categories for the current restaurant owner"""
-        try:
-            restaurant = request.user.restaurant
-            categories = MenuCategory.objects.filter(restaurant=restaurant)
-            serializer = self.get_serializer(categories, many=True)
-            return Response(serializer.data)
-        except (Restaurant.DoesNotExist, AttributeError):
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def used_by_restaurant(self, request):
+        """Get categories that have items in the current user's restaurant"""
+        if not request.user.is_restaurant_owner() or not hasattr(request.user, 'restaurant'):
             return Response(
-                {"detail": "No restaurant associated with this user account."}, 
+                {"detail": "No restaurant associated with this user account."},
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+        restaurant = request.user.restaurant
+        categories = MenuCategory.objects.filter(
+            items__restaurant=restaurant
+        ).distinct().order_by('order', 'name')
+        
+        # Add restaurant context for the serializer
+        serializer = self.get_serializer(categories, many=True, context={'restaurant': restaurant})
+        return Response(serializer.data)
 
 
 @extend_schema_view(
@@ -368,7 +380,7 @@ class RestaurantStatisticsViewSet(viewsets.ViewSet):
         # Calculate statistics
         total_orders = Order.objects.filter(restaurant=restaurant).count()
         total_menu_items = MenuItem.objects.filter(restaurant=restaurant).count()
-        total_categories = MenuCategory.objects.filter(restaurant=restaurant).count()
+        total_categories = MenuCategory.objects.filter(items__restaurant=restaurant).distinct().count()
         
         orders_by_status = Order.objects.filter(restaurant=restaurant)\
             .values('status')\

@@ -1,11 +1,13 @@
 from django.contrib import admin
+from django.utils.html import format_html
 from .models import Order, OrderItem, OrderStatusUpdate
 
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
-    extra = 0
+    extra = 1
     readonly_fields = ('id', 'unit_price', 'subtotal')
+    fields = ('menu_item', 'quantity', 'unit_price', 'subtotal', 'notes')
 
 
 class OrderStatusUpdateInline(admin.TabularInline):
@@ -30,7 +32,7 @@ class OrderAdmin(admin.ModelAdmin):
             'fields': ('delivery_address', 'delivery_lat', 'delivery_lng', 'estimated_delivery_time')
         }),
         ('Payment Details', {
-            'fields': ('total_price', 'delivery_fee')
+            'fields': ('delivery_fee', 'discount', 'total_price')
         }),
         ('Additional Information', {
             'fields': ('notes',)
@@ -40,6 +42,23 @@ class OrderAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+    
+    def save_model(self, request, obj, form, change):
+        """Override save to recalculate total_price after saving"""
+        super().save_model(request, obj, form, change)
+        # Recalculate total price after all inline items are saved
+        if obj.items.exists():
+            obj.total_price = obj.calculate_total_price()
+            obj.save()
+    
+    def save_formset(self, request, form, formset, change):
+        """Override to recalculate total_price after saving order items"""
+        super().save_formset(request, form, formset, change)
+        if formset.model == OrderItem:
+            # Recalculate total price after order items are saved
+            order = form.instance
+            order.total_price = order.calculate_total_price()
+            order.save()
 
 
 @admin.register(OrderItem)

@@ -112,17 +112,15 @@ def setup_restaurant(db, create_users):
         is_open=True
     )
     
-    # Create menu categories
-    category1 = MenuCategory.objects.create(
-        restaurant=restaurant,
+    # Create menu categories (now global)
+    category1, created = MenuCategory.objects.get_or_create(
         name='Main Dishes',
-        description='Main course items'
+        defaults={'description': 'Main course items'}
     )
     
-    category2 = MenuCategory.objects.create(
-        restaurant=restaurant,
+    category2, created = MenuCategory.objects.get_or_create(
         name='Desserts',
-        description='Sweet treats'
+        defaults={'description': 'Sweet treats'}
     )
     
     # Create menu items

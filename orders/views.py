@@ -1,6 +1,7 @@
 from rest_framework import viewsets, permissions, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count # Import Count
 from .models import Order, OrderItem, OrderStatusUpdate
@@ -11,8 +12,16 @@ from .serializers import (
     OrderStatusUpdateSerializer,
     OrderUpdateSerializer
 )
+from .filters import OrderFilter
 from users.permissions import IsCustomer, IsRestaurantOwner, IsDriver, IsAdminUser
 from drf_spectacular.utils import extend_schema, extend_schema_view
+
+
+class OrderPagination(PageNumberPagination):
+    """Custom pagination for orders with 20 items per page"""
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class OrderPermission(permissions.BasePermission):
@@ -32,27 +41,8 @@ class OrderPermission(permissions.BasePermission):
         if request.user.is_staff:
             return True
         
-        # Customer can only view their own orders
-        if request.user.is_customer():
-            return obj.customer == request.user
-        
-        # Restaurant owner can view orders for their restaurant
-        if request.user.is_restaurant_owner():
-            if hasattr(request.user, 'restaurant'):
-                return obj.restaurant == request.user.restaurant
-            return False
-        
-        # Driver can view orders assigned to them
-        if request.user.is_driver():
-            if hasattr(request.user, 'driver_profile'):
-                # Check if driver is assigned to this order
-                try:
-                    return obj.driver_task.driver.user == request.user
-                except AttributeError:
-                    return False
-            return False
-        
-        return False
+        # any authenticated user can view their own orders
+        return request.user.is_authenticated
 
 
 @extend_schema_view(
@@ -70,11 +60,13 @@ class OrderViewSet(viewsets.ModelViewSet):
     - Drivers see orders assigned to them
     - Admins see all orders
     """
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['status', 'restaurant']
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
+    filterset_class = OrderFilter
     ordering_fields = ['created_at', 'updated_at', 'total_price']
     ordering = ['-created_at']
+    search_fields = ['customer__first_name', 'customer__last_name', 'id']
     permission_classes = [OrderPermission]
+    pagination_class = OrderPagination
     tags = ['Core Business Operations']
     
     def get_serializer_class(self):

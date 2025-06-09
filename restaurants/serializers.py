@@ -29,44 +29,22 @@ class MenuItemSerializer(serializers.ModelSerializer):
 
 
 class MenuCategorySerializer(serializers.ModelSerializer):
-    items = MenuItemSerializer(many=True, read_only=True)
-    restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
-    items_count = serializers.IntegerField(source='items.count', read_only=True)
+    items_count = serializers.SerializerMethodField()
     
     class Meta:
         model = MenuCategory
         fields = [
-            'id', 'restaurant', 'restaurant_name', 'name', 'description', 
-            'order', 'is_active', 'items', 'items_count', 'created_at', 'updated_at'
+            'id', 'name', 'description', 'order', 'is_active',
+            'items_count', 'created_at', 'updated_at'
         ]
         read_only_fields = [
-            'id', 'restaurant_name', 'items_count', 
-            'created_at', 'updated_at'
+            'id', 'items_count', 'created_at', 'updated_at'
         ]
     
-    def validate(self, data):
-        """
-        Validate that the category name is unique within the restaurant
-        """
-        restaurant = data.get('restaurant')
-        name = data.get('name')
-        
-        if restaurant and name:
-            # Check for existing category with same name (excluding current instance)
-            existing = MenuCategory.objects.filter(
-                restaurant=restaurant, 
-                name__iexact=name
-            )
-            
-            if self.instance:
-                existing = existing.exclude(id=self.instance.id)
-                
-            if existing.exists():
-                raise serializers.ValidationError({
-                    "name": "A category with this name already exists in this restaurant."
-                })
-                
-        return data
+    def get_items_count(self, obj):
+        """Get count of items in this category for the current restaurant context"""
+        # This will be handled in the view to filter by restaurant
+        return getattr(obj, 'items_count', 0)
 
 
 class RestaurantReviewSerializer(serializers.ModelSerializer):
@@ -84,7 +62,7 @@ class RestaurantReviewSerializer(serializers.ModelSerializer):
 
 
 class RestaurantSerializer(serializers.ModelSerializer):
-    menu_categories = MenuCategorySerializer(many=True, read_only=True)
+    menu_categories = serializers.SerializerMethodField()
     menu_items = MenuItemSerializer(many=True, read_only=True)
     average_rating = serializers.SerializerMethodField()
     owner_name = serializers.CharField(source='user.full_name', read_only=True)
@@ -92,15 +70,26 @@ class RestaurantSerializer(serializers.ModelSerializer):
     class Meta:
         model = Restaurant
         fields = [
-            'id', 'user', 'name', 'address', 'location_lat', 'location_lng', 
-            'description', 'logo', 'is_open', 'opening_time', 'closing_time', 
-            'created_at', 'updated_at', 'menu_categories', 'menu_items', 
+            'id', 'user', 'name', 'address', 'location_lat', 'location_lng',
+            'description', 'logo', 'is_open', 'opening_time', 'closing_time',
+            'created_at', 'updated_at', 'menu_categories', 'menu_items',
             'average_rating', 'owner_name'
         ]
         read_only_fields = [
-            'id', 'user', 'created_at', 'updated_at', 
+            'id', 'user', 'created_at', 'updated_at',
             'average_rating', 'owner_name'
         ]
+    
+    def get_menu_categories(self, obj):
+        """Get categories that have items in this restaurant"""
+        from django.db.models import Count
+        categories = MenuCategory.objects.filter(
+            items__restaurant=obj
+        ).annotate(
+            items_count=Count('items')
+        ).distinct().order_by('order', 'name')
+        
+        return MenuCategorySerializer(categories, many=True).data
     
     def get_average_rating(self, obj) -> float | None:
         """
@@ -142,9 +131,18 @@ class RestaurantListSerializer(serializers.ModelSerializer):
 
 class MenuCategoryWithItemsSerializer(MenuCategorySerializer):
     """
-    Extended serializer for menu categories that includes all items.
+    Extended serializer for menu categories that includes items for a specific restaurant.
     """
-    items = MenuItemSerializer(many=True, read_only=True)
+    items = serializers.SerializerMethodField()
     
     class Meta(MenuCategorySerializer.Meta):
         pass
+    
+    def get_items(self, obj):
+        """Get items in this category for the current restaurant context"""
+        # The restaurant context should be passed from the view
+        restaurant = self.context.get('restaurant')
+        if restaurant:
+            items = obj.items.filter(restaurant=restaurant)
+            return MenuItemSerializer(items, many=True).data
+        return []
