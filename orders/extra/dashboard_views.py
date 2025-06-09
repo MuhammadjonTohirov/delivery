@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from django.db.models import Count, Sum, Avg, Q
 from django.utils.dateparse import parse_date
 from datetime import datetime, date
-from .models import Order
-from .serializers import OrderListSerializer
+from ..models import Order
+from ..serializers import OrderListSerializer
 from restaurants.models import Restaurant
 from users.permissions import IsRestaurantOwner
 from drf_spectacular.utils import extend_schema, OpenApiParameter
