@@ -10,7 +10,8 @@ from .serializers import (
     OrderListSerializer,
     OrderItemSerializer,
     OrderStatusUpdateSerializer,
-    OrderUpdateSerializer
+    OrderUpdateSerializer,
+    OrderDetailSerializer # Added
 )
 from .filters import OrderFilter
 from users.permissions import IsCustomer, IsRestaurantOwner, IsDriver, IsAdminUser
@@ -72,9 +73,11 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'list':
             return OrderListSerializer
+        elif self.action == 'retrieve': # Added this condition
+            return OrderDetailSerializer
         elif self.action == 'update' or self.action == 'partial_update':
             return OrderUpdateSerializer
-        return OrderSerializer
+        return OrderSerializer # Default for create and other actions
     
     def get_queryset(self):
         user = self.request.user
