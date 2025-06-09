@@ -27,34 +27,51 @@ class RestaurantProfileInline(admin.StackedInline):
 
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
-    list_display = ('email', 'full_name', 'role', 'is_active', 'is_staff', 'date_joined')
-    list_filter = ('role', 'is_active', 'is_staff', 'date_joined')
+    list_display = ('email', 'full_name', 'get_user_type', 'avatar', 'is_active', 'is_staff', 'date_joined')
+    list_filter = ('is_active', 'is_staff', 'date_joined')
     search_fields = ('email', 'full_name', 'phone')
     ordering = ('email',)
+    filter_horizontal = ('groups', 'user_permissions')
+    
+    def get_user_type(self, obj):
+        """Display user type based on profiles"""
+        types = []
+        if obj.is_restaurant_owner():
+            types.append('Restaurant Owner')
+        if obj.is_driver():
+            types.append('Driver')
+        if obj.is_admin_user():
+            types.append('Admin')
+        if not types:
+            types.append('Customer')
+        return ', '.join(types)
+    get_user_type.short_description = 'User Type'
     
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        (_('Personal info'), {'fields': ('full_name', 'phone')}),
-        (_('Permissions'), {'fields': ('role', 'is_active', 'is_staff', 'is_superuser',
+        (_('Personal info'), {'fields': ('full_name', 'phone', 'avatar')}),
+        (_('Permissions'), {'fields': ('is_active', 'is_staff', 'is_superuser',
                                        'groups', 'user_permissions')}),
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
     )
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'full_name', 'password1', 'password2', 'role', 'is_active', 'is_staff'),
+            'fields': ('email', 'full_name', 'avatar', 'password1', 'password2', 'is_active', 'is_staff'),
         }),
     )
     
     def get_inlines(self, request, obj=None):
+        """Show appropriate profile inlines based on user profiles"""
+        inlines = []
         if obj:
-            if obj.role == 'CUSTOMER':
-                return [CustomerProfileInline]
-            elif obj.role == 'DRIVER':
-                return [DriverProfileInline]
-            elif obj.role == 'RESTAURANT':
-                return [RestaurantProfileInline]
-        return []
+            # Always show customer profile inline since all users are customers
+            inlines.append(CustomerProfileInline)
+            if obj.is_driver():
+                inlines.append(DriverProfileInline)
+            if obj.is_restaurant_owner():
+                inlines.append(RestaurantProfileInline)
+        return inlines
 
 
 @admin.register(CustomerProfile)

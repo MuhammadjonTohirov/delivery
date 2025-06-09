@@ -181,7 +181,7 @@ class DeliveryRouteViewSet(viewsets.ReadOnlyModelViewSet):
         if user.is_staff:
             return DeliveryRoute.objects.all()
         
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        if user.is_driver() and hasattr(user, 'driver_profile'):
             return DeliveryRoute.objects.filter(driver=user.driver_profile)
         
         return DeliveryRoute.objects.none()

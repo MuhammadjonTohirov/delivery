@@ -18,7 +18,7 @@ class IsRestaurantOwnerOrAdmin(permissions.BasePermission):
             return True
             
         # Restaurant owners can access their own data
-        if request.user.role == 'RESTAURANT':
+        if request.user.is_restaurant_owner():
             return hasattr(request.user, 'restaurant')
             
         return False
@@ -30,7 +30,7 @@ class IsRestaurantOwnerOrAdmin(permissions.BasePermission):
             return True
             
         # For restaurant owners, check ownership
-        if request.user.role == 'RESTAURANT' and hasattr(request.user, 'restaurant'):
+        if request.user.is_restaurant_owner() and hasattr(request.user, 'restaurant'):
             # For restaurant objects
             if hasattr(obj, 'user'):
                 return obj.user == request.user
@@ -50,7 +50,7 @@ class IsRestaurantOwnerOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         return (
             request.user.is_authenticated and 
-            request.user.role == 'RESTAURANT' and
+            request.user.is_restaurant_owner() and
             hasattr(request.user, 'restaurant')
         )
     
@@ -79,7 +79,7 @@ class CanModifyRestaurantData(permissions.BasePermission):
         return (
             request.user.is_authenticated and
             (request.user.is_staff or 
-             (request.user.role == 'RESTAURANT' and hasattr(request.user, 'restaurant')))
+             (request.user.is_restaurant_owner() and hasattr(request.user, 'restaurant')))
         )
     
     def has_object_permission(self, request, view, obj):
@@ -91,7 +91,7 @@ class CanModifyRestaurantData(permissions.BasePermission):
         if request.user.is_staff:
             return True
             
-        if request.user.role == 'RESTAURANT' and hasattr(request.user, 'restaurant'):
+        if request.user.is_restaurant_owner() and hasattr(request.user, 'restaurant'):
             if hasattr(obj, 'restaurant'):
                 return obj.restaurant == request.user.restaurant
                 
@@ -100,25 +100,23 @@ class CanModifyRestaurantData(permissions.BasePermission):
 
 class IsMenuCategoryOwner(permissions.BasePermission):
     """
-    Permission to check if user owns the menu category
+    Permission for menu category operations.
+    Since categories are now global, only staff can modify them.
+    Restaurant owners can view all categories.
     """
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
             
-        return request.user.is_authenticated
+        # Only staff can create/modify global categories
+        return request.user.is_authenticated and request.user.is_staff
     
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
             
-        if request.user.is_staff:
-            return True
-            
-        if request.user.role == 'RESTAURANT' and hasattr(request.user, 'restaurant'):
-            return obj.restaurant == request.user.restaurant
-            
-        return False
+        # Only staff can modify global categories
+        return request.user.is_staff
 
 
 class IsMenuItemOwner(permissions.BasePermission):
@@ -138,7 +136,7 @@ class IsMenuItemOwner(permissions.BasePermission):
         if request.user.is_staff:
             return True
             
-        if request.user.role == 'RESTAURANT' and hasattr(request.user, 'restaurant'):
+        if request.user.is_restaurant_owner() and hasattr(request.user, 'restaurant'):
             return obj.restaurant == request.user.restaurant
             
         return False

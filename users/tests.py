@@ -18,7 +18,7 @@ class UserRegistrationTests(APITestCase):
             'phone': '+1234567890',
             'password': 'strongpassword123',
             'password_confirm': 'strongpassword123',
-            'role': 'CUSTOMER',
+            'roles': ['CUSTOMER'],
             'customer_profile': {
                 'default_address': '123 Test St, Test City'
             }
@@ -31,7 +31,7 @@ class UserRegistrationTests(APITestCase):
         
         user = CustomUser.objects.get(email='customer@example.com')
         self.assertEqual(user.full_name, 'Test Customer')
-        self.assertEqual(user.role, 'CUSTOMER')
+        self.assertTrue(user.has_role('CUSTOMER'))
         
     def test_register_driver(self):
         """
@@ -58,7 +58,7 @@ class UserRegistrationTests(APITestCase):
         
         user = CustomUser.objects.get(email='driver@example.com')
         self.assertEqual(user.full_name, 'Test Driver')
-        self.assertEqual(user.role, 'DRIVER')
+        self.assertTrue(user.has_role('DRIVER'))
         
     def test_register_restaurant(self):
         """
@@ -98,7 +98,7 @@ class UserRegistrationTests(APITestCase):
             'full_name': 'Test User',
             'password': 'password123',
             'password_confirm': 'password456',
-            'role': 'CUSTOMER'
+            'roles': ['CUSTOMER']
         }
         
         response = self.client.post(url, data, format='json')
@@ -112,9 +112,15 @@ class UserAuthenticationTests(APITestCase):
         self.user = CustomUser.objects.create_user(
             email='test@example.com',
             full_name='Test User',
-            password='testpassword',
-            role='CUSTOMER'
+            password='testpassword'
         )
+        # Add customer role
+        from users.models import UserRole
+        customer_role, _ = UserRole.objects.get_or_create(
+            name='CUSTOMER',
+            defaults={'display_name': 'Customer'}
+        )
+        self.user.roles.add(customer_role)
         CustomerProfile.objects.get_or_create(user=self.user)
         
     def test_login(self):
@@ -176,9 +182,15 @@ class UserProfileTests(APITestCase):
         self.user = CustomUser.objects.create_user(
             email='customer@example.com',
             full_name='Test Customer',
-            password='testpassword',
-            role='CUSTOMER'
+            password='testpassword'
         )
+        # Add customer role
+        from users.models import UserRole
+        customer_role, _ = UserRole.objects.get_or_create(
+            name='CUSTOMER',
+            defaults={'display_name': 'Customer'}
+        )
+        self.user.roles.add(customer_role)
         self.customer_profile, _ = CustomerProfile.objects.get_or_create(user=self.user)
         self.customer_profile.default_address = '123 Test St, Test City'
         self.customer_profile.save()
@@ -186,9 +198,14 @@ class UserProfileTests(APITestCase):
         self.driver = CustomUser.objects.create_user(
             email='driver@example.com',
             full_name='Test Driver',
-            password='testpassword',
-            role='DRIVER'
+            password='testpassword'
         )
+        # Add driver role
+        driver_role, _ = UserRole.objects.get_or_create(
+            name='DRIVER',
+            defaults={'display_name': 'Driver'}
+        )
+        self.driver.roles.add(driver_role)
         self.driver_profile, _ = DriverProfile.objects.get_or_create(user=self.driver)
         self.driver_profile.vehicle_type = 'Car'
         self.driver_profile.license_number = 'DL12345'

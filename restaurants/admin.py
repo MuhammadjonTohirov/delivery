@@ -2,11 +2,6 @@ from django.contrib import admin
 from .models import Restaurant, MenuCategory, MenuItem, RestaurantReview
 
 
-class MenuCategoryInline(admin.TabularInline):
-    model = MenuCategory
-    extra = 1
-
-
 class MenuItemInline(admin.TabularInline):
     model = MenuItem
     extra = 1
@@ -19,7 +14,7 @@ class RestaurantAdmin(admin.ModelAdmin):
     list_filter = ('is_open', 'created_at')
     search_fields = ('name', 'address', 'user__email', 'user__full_name')
     readonly_fields = ('id', 'created_at', 'updated_at')
-    inlines = [MenuCategoryInline, MenuItemInline]
+    inlines = [MenuItemInline]
     fieldsets = (
         (None, {
             'fields': ('id', 'user', 'name', 'address')
@@ -39,11 +34,11 @@ class RestaurantAdmin(admin.ModelAdmin):
 
 @admin.register(MenuCategory)
 class MenuCategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'restaurant', 'order')
-    list_filter = ('restaurant',)
-    search_fields = ('name', 'restaurant__name')
-    readonly_fields = ('id',)
-    inlines = [MenuItemInline]
+    list_display = ('name', 'order', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('name',)
+    readonly_fields = ('id', 'created_at', 'updated_at')
+    ordering = ('order', 'name')
 
 
 @admin.register(MenuItem)

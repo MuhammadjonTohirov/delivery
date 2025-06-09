@@ -26,7 +26,7 @@ class DriverPermission(permissions.BasePermission):
     - Admins can access all data
     """
     def has_permission(self, request, view):
-        return request.user.is_authenticated and (request.user.role == 'DRIVER' or request.user.is_staff)
+        return request.user.is_authenticated and (request.user.is_driver() or request.user.is_staff)
     
     def has_object_permission(self, request, view, obj):
         if request.user.is_staff:
@@ -39,19 +39,24 @@ class DriverPermission(permissions.BasePermission):
 
 
 @extend_schema_view(
-    list=extend_schema(summary="List driver locations", description="List of driver location updates"),
-    retrieve=extend_schema(summary="Get location details", description="Get details of a specific location update"),
-    create=extend_schema(summary="Create location update", description="Create a new location update (Driver only)"),
+    list=extend_schema(summary="List driver locations", description="List of driver location updates", tags=['Delivery & Logistics']),
+    retrieve=extend_schema(summary="Get location details", description="Get details of a specific location update", tags=['Delivery & Logistics']),
+    create=extend_schema(summary="Create location update", description="Create a new location update (Driver only)", tags=['Delivery & Logistics']),
 )
 class DriverLocationViewSet(viewsets.ModelViewSet):
     """
     ViewSet for reporting and retrieving driver locations.
     """
     serializer_class = DriverLocationSerializer
+    tags = ['Delivery & Logistics']
     permission_classes = [DriverPermission]
     http_method_names = ['get', 'post', 'head', 'options']  # Only allow GET and POST
     
     def get_queryset(self):
+        # Handle schema generation case
+        if getattr(self, 'swagger_fake_view', False):
+            return DriverLocation.objects.none()
+            
         user = self.request.user
         
         # Admin can see all locations
@@ -59,7 +64,7 @@ class DriverLocationViewSet(viewsets.ModelViewSet):
             return DriverLocation.objects.all()
         
         # Driver can only see their own locations
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        if user.is_driver() and hasattr(user, 'driver_profile'):
             return DriverLocation.objects.filter(driver=user.driver_profile)
         
         return DriverLocation.objects.none()
@@ -88,7 +93,7 @@ class DriverLocationViewSet(viewsets.ModelViewSet):
                 )
         
         # Driver can get their own latest location
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        if user.is_driver() and hasattr(user, 'driver_profile'):
             try:
                 latest_location = DriverLocation.objects.filter(
                     driver=user.driver_profile
@@ -121,6 +126,10 @@ class DriverAvailabilityViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'put', 'patch', 'head', 'options']  # No POST or DELETE
     
     def get_queryset(self):
+        # Handle schema generation case
+        if getattr(self, 'swagger_fake_view', False):
+            return DriverAvailability.objects.none()
+            
         user = self.request.user
         
         # Admin can see all availabilities
@@ -128,7 +137,7 @@ class DriverAvailabilityViewSet(viewsets.ModelViewSet):
             return DriverAvailability.objects.all()
         
         # Driver can only see their own availability
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        if user.is_driver() and hasattr(user, 'driver_profile'):
             return DriverAvailability.objects.filter(driver=user.driver_profile)
         
         return DriverAvailability.objects.none()
@@ -141,7 +150,7 @@ class DriverAvailabilityViewSet(viewsets.ModelViewSet):
     def me(self, request):
         user = request.user
         
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        if user.is_driver() and hasattr(user, 'driver_profile'):
             try:
                 availability = DriverAvailability.objects.get(driver=user.driver_profile)
                 serializer = self.get_serializer(availability)
@@ -168,7 +177,7 @@ class DriverAvailabilityViewSet(viewsets.ModelViewSet):
     def go_online(self, request):
         user = request.user
         
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        if user.is_driver() and hasattr(user, 'driver_profile'):
             availability, created = DriverAvailability.objects.get_or_create(
                 driver=user.driver_profile,
                 defaults={'status': 'AVAILABLE'}
@@ -194,7 +203,7 @@ class DriverAvailabilityViewSet(viewsets.ModelViewSet):
     def go_offline(self, request):
         user = request.user
         
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        if user.is_driver() and hasattr(user, 'driver_profile'):
             availability, created = DriverAvailability.objects.get_or_create(
                 driver=user.driver_profile,
                 defaults={'status': 'OFFLINE'}
@@ -232,6 +241,10 @@ class DriverTaskViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'put', 'patch', 'head', 'options']  # No POST or DELETE
     
     def get_queryset(self):
+        # Handle schema generation case
+        if getattr(self, 'swagger_fake_view', False):
+            return DriverTask.objects.none()
+            
         user = self.request.user
         
         # Admin can see all tasks
@@ -239,7 +252,7 @@ class DriverTaskViewSet(viewsets.ModelViewSet):
             return DriverTask.objects.all()
         
         # Driver can only see their own tasks
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        if user.is_driver() and hasattr(user, 'driver_profile'):
             return DriverTask.objects.filter(driver=user.driver_profile)
         
         return DriverTask.objects.none()
@@ -332,7 +345,7 @@ class DriverTaskViewSet(viewsets.ModelViewSet):
     def active(self, request):
         user = request.user
         
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        if user.is_driver() and hasattr(user, 'driver_profile'):
             # Get the most recent non-completed task
             active_task = DriverTask.objects.filter(
                 driver=user.driver_profile,
@@ -370,6 +383,10 @@ class DriverEarningViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ['-timestamp']
     
     def get_queryset(self):
+        # Handle schema generation case
+        if getattr(self, 'swagger_fake_view', False):
+            return DriverEarning.objects.none()
+            
         user = self.request.user
         
         # Admin can see all earnings
@@ -377,7 +394,7 @@ class DriverEarningViewSet(viewsets.ReadOnlyModelViewSet):
             return DriverEarning.objects.all()
         
         # Driver can only see their own earnings
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        if user.is_driver() and hasattr(user, 'driver_profile'):
             return DriverEarning.objects.filter(driver=user.driver_profile)
         
         return DriverEarning.objects.none()
@@ -395,7 +412,7 @@ class DriverEarningViewSet(viewsets.ReadOnlyModelViewSet):
         end_date = timezone.now()
         start_date = end_date - timedelta(days=days)
         
-        if user.role == 'DRIVER' and hasattr(user, 'driver_profile'):
+        if user.is_driver() and hasattr(user, 'driver_profile'):
             driver = user.driver_profile
             
             # Query earnings within the date range

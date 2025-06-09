@@ -10,10 +10,11 @@ from django.contrib import messages
 
 from .models import CustomerProfile, DriverProfile, RestaurantProfile
 from .serializers import (
-    UserSerializer, 
-    UserRegistrationSerializer, 
+    UserSerializer,
+    UserRegistrationSerializer,
     PasswordChangeSerializer,
-    CustomTokenObtainPairSerializer
+    CustomTokenObtainPairSerializer,
+    LogoutSerializer
 )
 from .permissions import IsOwnerOrAdmin, IsCustomer, IsDriver, IsRestaurantOwner, IsAdminUser
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -28,11 +29,13 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     View to obtain token pair with custom claims.
     """
     serializer_class = CustomTokenObtainPairSerializer
+    tags = ['Authentication & User Management']
     
     @extend_schema(
         summary="Login to obtain JWT token",
         description="Login endpoint that returns access and refresh tokens",
-        responses={200: {"example": {"access": "token", "refresh": "token"}}}
+        responses={200: {"example": {"access": "token", "refresh": "token"}}},
+        tags=['Authentication & User Management']
     )
     def post(self, request, *args, **kwargs):
         result = super().post(request, *args, **kwargs)
@@ -49,11 +52,27 @@ class LogoutView(APIView):
     View to blacklist the refresh token, effectively logging out the user.
     """
     permission_classes = [IsAuthenticated]
+    tags = ['Authentication & User Management']
     
     @extend_schema(
         summary="Logout and invalidate refresh token",
         description="Blacklists the refresh token to prevent further use",
-        responses={205: None}
+        request=LogoutSerializer,
+        responses={
+            205: {
+                "description": "Successfully logged out"
+            },
+            400: {
+                "description": "Invalid refresh token or missing token",
+                "examples": {
+                    "invalid_token": {
+                        "summary": "Invalid Token",
+                        "value": {"error": "Invalid refresh token"}
+                    }
+                }
+            }
+        },
+        tags=['Authentication & User Management']
     )
     def post(self, request):
         try:
@@ -72,11 +91,66 @@ class UserRegistrationView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [AllowAny]
+    tags = ['Authentication & User Management']
     
     @extend_schema(
         summary="Register a new user",
-        description="Create a new user account with role-specific profile data",
-        responses={201: UserSerializer}
+        description="""
+        Create a new user account with role-specific profile data.
+        
+        **Avatar Upload:**
+        - Optional profile picture upload
+        - Supported formats: JPG, PNG, GIF
+        - Maximum file size: 5MB
+        - Use multipart/form-data when uploading avatar
+        
+        **Role-specific profiles:**
+        - CUSTOMER: Optional default address and location
+        - DRIVER: Vehicle type and license number
+        - RESTAURANT: Business name, address, and registration number (required)
+        
+        **Example with avatar (multipart/form-data):**
+        ```
+        Content-Type: multipart/form-data
+        
+        email: user@example.com
+        full_name: John Doe
+        password: securepass123
+        password_confirm: securepass123
+        role: CUSTOMER
+        avatar: [image file]
+        customer_profile: {"default_address": "123 Main St"}
+        ```
+        
+        **Example without avatar (JSON):**
+        ```json
+        {
+          "email": "user@example.com",
+          "full_name": "John Doe",
+          "password": "securepass123",
+          "password_confirm": "securepass123",
+          "role": "CUSTOMER",
+          "customer_profile": {"default_address": "123 Main St"}
+        }
+        ```
+        """,
+        request=UserRegistrationSerializer,
+        responses={
+            201: UserSerializer,
+            400: {
+                "description": "Validation errors",
+                "examples": {
+                    "validation_error": {
+                        "summary": "Validation Error Example",
+                        "value": {
+                            "email": ["This field is required."],
+                            "password_confirm": ["Passwords do not match."],
+                            "restaurant_profile": ["Restaurant profile is required for restaurant users."]
+                        }
+                    }
+                }
+            }
+        }
     )
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
@@ -102,7 +176,24 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
     
     @extend_schema(
         summary="Update user profile",
-        description="Update the authenticated user's profile information",
+        description="""
+        Update the authenticated user's profile information.
+        
+        **Avatar Upload:**
+        - Use multipart/form-data when updating avatar
+        - Supported formats: JPG, PNG, GIF
+        - Maximum file size: 5MB
+        - Previous avatar will be replaced if new one is uploaded
+        
+        **Example with avatar (multipart/form-data):**
+        ```
+        Content-Type: multipart/form-data
+        
+        full_name: Updated Name
+        avatar: [new image file]
+        ```
+        """,
+        request=UserSerializer,
         responses={200: UserSerializer}
     )
     def put(self, request, *args, **kwargs):
@@ -110,7 +201,25 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
     
     @extend_schema(
         summary="Partially update user profile",
-        description="Partially update the authenticated user's profile information",
+        description="""
+        Partially update the authenticated user's profile information.
+        
+        **Avatar Upload:**
+        - Use multipart/form-data when updating avatar
+        - Supported formats: JPG, PNG, GIF
+        - Maximum file size: 5MB
+        - Previous avatar will be replaced if new one is uploaded
+        - Send null or empty to remove existing avatar
+        
+        **Example with avatar (multipart/form-data):**
+        ```
+        Content-Type: multipart/form-data
+        
+        full_name: Updated Name
+        avatar: [new image file]
+        ```
+        """,
+        request=UserSerializer,
         responses={200: UserSerializer}
     )
     def patch(self, request, *args, **kwargs):
@@ -126,7 +235,33 @@ class PasswordChangeView(APIView):
     @extend_schema(
         summary="Change password",
         description="Change the authenticated user's password",
-        responses={200: {"example": {"message": "Password changed successfully"}}}
+        request=PasswordChangeSerializer,
+        responses={
+            200: {
+                "description": "Password changed successfully",
+                "examples": {
+                    "success": {
+                        "summary": "Success Response",
+                        "value": {"message": "Password changed successfully"}
+                    }
+                }
+            },
+            400: {
+                "description": "Validation errors or incorrect current password",
+                "examples": {
+                    "validation_error": {
+                        "summary": "Validation Error",
+                        "value": {
+                            "new_password_confirm": ["New passwords do not match."]
+                        }
+                    },
+                    "incorrect_password": {
+                        "summary": "Incorrect Current Password",
+                        "value": {"error": "Current password is incorrect"}
+                    }
+                }
+            }
+        }
     )
     def post(self, request):
         serializer = PasswordChangeSerializer(data=request.data)
@@ -144,7 +279,7 @@ class CustomerListView(generics.ListAPIView):
     """
     View to list all customers (Admin only).
     """
-    queryset = User.objects.filter(role='CUSTOMER')
+    queryset = User.objects.all()  # All users are customers
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
     
@@ -161,7 +296,7 @@ class DriverListView(generics.ListAPIView):
     """
     View to list all drivers (Admin only).
     """
-    queryset = User.objects.filter(role='DRIVER')
+    queryset = User.objects.filter(driver_profile__isnull=False).distinct()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
     
@@ -178,7 +313,7 @@ class RestaurantOwnerListView(generics.ListAPIView):
     """
     View to list all restaurant owners (Admin only).
     """
-    queryset = User.objects.filter(role='RESTAURANT')
+    queryset = User.objects.filter(restaurant__isnull=False).distinct()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
     

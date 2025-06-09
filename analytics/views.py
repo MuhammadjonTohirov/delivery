@@ -32,7 +32,7 @@ class AnalyticsPermission(permissions.BasePermission):
         if request.user.is_staff:
             return True
         
-        if request.user.role == 'RESTAURANT':
+        if request.user.is_restaurant_owner():
             if hasattr(obj, 'restaurant'):
                 return obj.restaurant and hasattr(request.user, 'restaurant') and obj.restaurant == request.user.restaurant
         
@@ -40,23 +40,28 @@ class AnalyticsPermission(permissions.BasePermission):
 
 
 @extend_schema_view(
-    list=extend_schema(summary="List analytics events", description="List analytics events with filtering"),
-    create=extend_schema(summary="Create analytics event", description="Create a new analytics event"),
+    list=extend_schema(summary="List analytics events", description="List analytics events with filtering", tags=['Communication & Analytics']),
+    create=extend_schema(summary="Create analytics event", description="Create a new analytics event", tags=['Communication & Analytics']),
 )
 class AnalyticsEventViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing analytics events
     """
     serializer_class = AnalyticsEventSerializer
+    tags = ['Communication & Analytics']
     permission_classes = [AnalyticsPermission]
     
     def get_queryset(self):
+        # Handle schema generation case
+        if getattr(self, 'swagger_fake_view', False):
+            return AnalyticsEvent.objects.none()
+            
         user = self.request.user
         
         if user.is_staff:
             return AnalyticsEvent.objects.all()
         
-        if user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+        if user.is_restaurant_owner() and hasattr(user, 'restaurant'):
             return AnalyticsEvent.objects.filter(restaurant=user.restaurant)
         
         return AnalyticsEvent.objects.none()
@@ -67,6 +72,7 @@ class RestaurantAnalyticsViewSet(viewsets.ViewSet):
     ViewSet for restaurant-specific analytics and dashboard data
     """
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = RestaurantDashboardSerializer
     
     def get_date_range(self, period='month'):
         """
@@ -111,7 +117,7 @@ class RestaurantAnalyticsViewSet(viewsets.ViewSet):
                     {"error": "Restaurant not found"},
                     status=status.HTTP_404_NOT_FOUND
                 )
-        elif user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+        elif user.is_restaurant_owner() and hasattr(user, 'restaurant'):
             restaurant = user.restaurant
         else:
             return Response(
@@ -316,6 +322,7 @@ class PlatformAnalyticsViewSet(viewsets.ViewSet):
     ViewSet for platform-wide analytics (Admin only)
     """
     permission_classes = [permissions.IsAuthenticated, IsAdminUser]
+    serializer_class = PlatformDashboardSerializer
     
     @extend_schema(
         summary="Get platform dashboard analytics",
@@ -475,12 +482,16 @@ class DashboardStatsViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AnalyticsPermission]
     
     def get_queryset(self):
+        # Handle schema generation case
+        if getattr(self, 'swagger_fake_view', False):
+            return DashboardStats.objects.none()
+            
         user = self.request.user
         
         if user.is_staff:
             return DashboardStats.objects.all()
         
-        if user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+        if user.is_restaurant_owner() and hasattr(user, 'restaurant'):
             return DashboardStats.objects.filter(restaurant=user.restaurant)
         
         return DashboardStats.objects.none()
@@ -497,12 +508,16 @@ class RevenueMetricsViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AnalyticsPermission]
     
     def get_queryset(self):
+        # Handle schema generation case
+        if getattr(self, 'swagger_fake_view', False):
+            return RevenueMetrics.objects.none()
+            
         user = self.request.user
         
         if user.is_staff:
             return RevenueMetrics.objects.all()
         
-        if user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+        if user.is_restaurant_owner() and hasattr(user, 'restaurant'):
             return RevenueMetrics.objects.filter(restaurant=user.restaurant)
         
         return RevenueMetrics.objects.none()
@@ -519,12 +534,16 @@ class CustomerInsightsViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AnalyticsPermission]
     
     def get_queryset(self):
+        # Handle schema generation case
+        if getattr(self, 'swagger_fake_view', False):
+            return CustomerInsights.objects.none()
+            
         user = self.request.user
         
         if user.is_staff:
             return CustomerInsights.objects.all()
         
-        if user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+        if user.is_restaurant_owner() and hasattr(user, 'restaurant'):
             return CustomerInsights.objects.filter(restaurant=user.restaurant)
         
         return CustomerInsights.objects.none()
@@ -541,12 +560,16 @@ class PopularMenuItemsViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AnalyticsPermission]
     
     def get_queryset(self):
+        # Handle schema generation case
+        if getattr(self, 'swagger_fake_view', False):
+            return PopularMenuItems.objects.none()
+            
         user = self.request.user
         
         if user.is_staff:
             return PopularMenuItems.objects.all()
         
-        if user.role == 'RESTAURANT' and hasattr(user, 'restaurant'):
+        if user.is_restaurant_owner() and hasattr(user, 'restaurant'):
             return PopularMenuItems.objects.filter(restaurant=user.restaurant)
         
         return PopularMenuItems.objects.none()

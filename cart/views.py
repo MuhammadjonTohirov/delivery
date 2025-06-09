@@ -46,6 +46,10 @@ class CartViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'put', 'patch', 'head', 'options']  # No POST or DELETE
     
     def get_queryset(self):
+        # Handle schema generation case
+        if getattr(self, 'swagger_fake_view', False):
+            return Cart.objects.none()
+            
         user = self.request.user
         
         if user.is_staff:
@@ -278,6 +282,10 @@ class SavedCartViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
+        # Handle schema generation case
+        if getattr(self, 'swagger_fake_view', False):
+            return SavedCart.objects.none()
+            
         return SavedCart.objects.filter(user=self.request.user)
     
     @extend_schema(

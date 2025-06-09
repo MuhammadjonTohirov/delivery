@@ -1,20 +1,16 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import CustomUser, CustomerProfile, DriverProfile, RestaurantProfile
+from .models import CustomUser, CustomerProfile
 
 
 @receiver(post_save, sender=CustomUser)
-def create_user_profile(sender, instance, created, **kwargs):
+def create_customer_profile(sender, instance, created, **kwargs):
     """
-    Signal to create the appropriate profile when a user is created.
+    Signal to create a customer profile for every new user.
+    All users are customers by default.
     """
     if created:
-        if instance.role == 'CUSTOMER' and not CustomerProfile.objects.filter(user=instance).exists():
+        try:
             CustomerProfile.objects.create(user=instance)
-        elif instance.role == 'DRIVER' and not DriverProfile.objects.filter(user=instance).exists():
-            DriverProfile.objects.create(user=instance)
-        elif instance.role == 'RESTAURANT' and not RestaurantProfile.objects.filter(user=instance).exists():
-            RestaurantProfile.objects.create(
-                user=instance,
-                business_name=f"{instance.full_name}'s Restaurant"
-            )
+        except Exception:
+            pass  # Profile might already exist

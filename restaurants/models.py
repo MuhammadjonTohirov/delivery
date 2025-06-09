@@ -25,10 +25,9 @@ class Restaurant(models.Model):
 
 class MenuCategory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='menu_categories')
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True, null=True)
-    order = models.PositiveIntegerField(default=0)
+    order = models.PositiveIntegerField(default=0, help_text='Order of display')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
@@ -36,10 +35,9 @@ class MenuCategory(models.Model):
     class Meta:
         verbose_name_plural = 'Menu Categories'
         ordering = ['order', 'name']
-        unique_together = ['restaurant', 'name']
     
     def __str__(self):
-        return f"{self.restaurant.name} - {self.name}"
+        return self.name
 
 
 class MenuItem(models.Model):

@@ -215,7 +215,7 @@ class TestUserRegistration:
         user = CustomUser.objects.filter(email=customer_data['email']).first()
         assert user is not None
         assert user.full_name == customer_data['full_name']
-        assert user.role == 'CUSTOMER'
+        assert user.has_role('CUSTOMER')
     
     def test_driver_registration(self, api_client, driver_data):
         """Test registering a new driver user."""
@@ -232,7 +232,7 @@ class TestUserRegistration:
         user = CustomUser.objects.filter(email=driver_data['email']).first()
         assert user is not None
         assert user.full_name == driver_data['full_name']
-        assert user.role == 'DRIVER'
+        assert user.has_role('DRIVER')
     
     def test_restaurant_registration(self, api_client, restaurant_data):
         """Test registering a new restaurant owner user."""
@@ -249,7 +249,7 @@ class TestUserRegistration:
         user = CustomUser.objects.filter(email=restaurant_data['email']).first()
         assert user is not None
         assert user.full_name == restaurant_data['full_name']
-        assert user.role == 'RESTAURANT'
+        assert user.has_role('RESTAURANT')
     
     def test_registration_missing_data(self, api_client, customer_data):
         """Test registration fails when required data is missing."""
