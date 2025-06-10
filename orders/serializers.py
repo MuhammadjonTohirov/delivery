@@ -441,7 +441,6 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     restaurant = RestaurantDetailSerializer(read_only=True)
     customer = CustomerDetailSerializer(read_only=True)
     deliveryAddress = DeliveryAddressSerializer(source='*', read_only=True) # Pass the whole Order instance
-    items = OrderItemDetailSerializer(many=True, read_only=True, source='items') # Explicit source for items
     pricing = PricingDetailSerializer(source='*', read_only=True) # Pass the whole Order instance
     payment = PaymentDetailSerializer(source='*', read_only=True) # Pass the whole Order instance (all placeholders)
     delivery = DeliveryDetailSerializer(source='*', read_only=True) # Pass the whole Order instance

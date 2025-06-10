@@ -53,7 +53,7 @@ class RestaurantViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(user=self.request.user)
         elif self.request.user.is_superuser or self.request.user.is_staff:
             # If the user is authenticated but not an owner, show all open restaurants
-            queryset = queryset.filter(is_open=True)
+            pass
         
         # Annotate with average rating for all operations
         queryset = queryset.annotate(average_rating_annotated=Avg('reviews__rating'))

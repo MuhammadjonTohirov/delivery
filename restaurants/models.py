@@ -77,4 +77,4 @@ class RestaurantReview(models.Model):
         unique_together = ('restaurant', 'user')
     
     def __str__(self):
-        return f"{self.restaurant.name} - {self.rating} stars by {self.user.username}"
+        return f"{self.restaurant.name} - {self.rating} stars by {self.user.email}"
