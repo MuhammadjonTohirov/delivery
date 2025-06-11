@@ -1,173 +1,210 @@
 from rest_framework import serializers
 from django.utils import timezone
 from .models import (
-    PromotionCampaign, Coupon, CouponUsage, LoyaltyProgram, LoyaltyAccount,
-    LoyaltyTransaction, ReferralProgram, Referral, FlashSale
+    Promotion, PromotionUsage, Campaign, LoyaltyProgram, 
+    CustomerLoyaltyAccount, LoyaltyTransaction
 )
 
 
-class PromotionCampaignSerializer(serializers.ModelSerializer):
+class PromotionSerializer(serializers.ModelSerializer):
+    """Full serializer for Promotion CRUD operations"""
     created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
-    is_active = serializers.BooleanField(read_only=True)
-    restaurants = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
-    menu_items = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
-    
-    class Meta:
-        model = PromotionCampaign
-        fields = ['id', 'name', 'description', 'type', 'status', 'start_date', 'end_date',
-                  'max_uses_total', 'max_uses_per_user', 'current_uses', 'restaurants', 
-                  'menu_items', 'min_order_amount', 'target_user_roles', 'target_new_users_only',
-                  'created_by', 'created_by_name', 'is_active', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'current_uses', 'created_by', 'created_by_name', 
-                           'is_active', 'created_at', 'updated_at']
-    
-    def create(self, validated_data):
-        validated_data['created_by'] = self.context['request'].user
-        return super().create(validated_data)
-
-
-class CouponSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
-    is_valid = serializers.BooleanField(read_only=True)
+    is_currently_active = serializers.BooleanField(source='is_active', read_only=True)
     applicable_restaurants = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     applicable_menu_items = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     
     class Meta:
-        model = Coupon
-        fields = ['id', 'code', 'name', 'description', 'discount_type', 'discount_value',
-                  'max_discount_amount', 'min_order_amount', 'start_date', 'end_date',
-                  'max_uses', 'max_uses_per_user', 'current_uses', 'is_active',
-                  'applicable_restaurants', 'applicable_menu_items', 'first_order_only',
-                  'created_by', 'created_by_name', 'is_valid', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'current_uses', 'created_by', 'created_by_name', 
-                           'is_valid', 'created_at', 'updated_at']
-    
+        model = Promotion
+        fields = [
+            'id', 'name', 'code', 'description', 'promotion_type', 'status',
+            'discount_percentage', 'discount_amount', 'minimum_order_amount',
+            'maximum_discount_amount', 'usage_limit', 'usage_limit_per_user',
+            'current_usage_count', 'start_date', 'end_date',
+            'applicable_to_new_users_only', 'applicable_restaurants',
+            'applicable_menu_items', 'created_by', 'created_by_name',
+            'is_currently_active', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'current_usage_count', 'created_by', 'created_by_name',
+            'is_currently_active', 'created_at', 'updated_at'
+        ]
+
+    def validate_code(self, value):
+        """Ensure promotion code is unique"""
+        code = value.upper()
+        if self.instance and self.instance.code == code:
+            return code
+        
+        if Promotion.objects.filter(code=code).exists():
+            raise serializers.ValidationError("A promotion with this code already exists.")
+        return code
+
+    def validate(self, data):
+        """Validate promotion data"""
+        promotion_type = data.get('promotion_type')
+        
+        # Validate discount values based on type
+        if promotion_type == 'PERCENTAGE':
+            if not data.get('discount_percentage'):
+                raise serializers.ValidationError({
+                    'discount_percentage': 'This field is required for percentage discounts.'
+                })
+            if data.get('discount_percentage', 0) <= 0 or data.get('discount_percentage', 0) > 100:
+                raise serializers.ValidationError({
+                    'discount_percentage': 'Percentage must be between 0 and 100.'
+                })
+        
+        elif promotion_type == 'FIXED_AMOUNT':
+            if not data.get('discount_amount'):
+                raise serializers.ValidationError({
+                    'discount_amount': 'This field is required for fixed amount discounts.'
+                })
+            if data.get('discount_amount', 0) <= 0:
+                raise serializers.ValidationError({
+                    'discount_amount': 'Discount amount must be greater than 0.'
+                })
+        
+        # Validate date range
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if start_date and end_date and start_date >= end_date:
+            raise serializers.ValidationError({
+                'end_date': 'End date must be after start date.'
+            })
+        
+        return data
+
     def create(self, validated_data):
-        validated_data['created_by'] = self.context['request'].user
+        """Create promotion with uppercase code"""
+        validated_data['code'] = validated_data['code'].upper()
         return super().create(validated_data)
 
+    def update(self, instance, validated_data):
+        """Update promotion with uppercase code"""
+        if 'code' in validated_data:
+            validated_data['code'] = validated_data['code'].upper()
+        return super().update(instance, validated_data)
 
-class CouponUsageSerializer(serializers.ModelSerializer):
-    coupon_code = serializers.CharField(source='coupon.code', read_only=True)
+
+class PromotionListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for promotion list view"""
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
+    is_currently_active = serializers.BooleanField(source='is_active', read_only=True)
+    usage_percentage = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Promotion
+        fields = [
+            'id', 'name', 'code', 'promotion_type', 'status',
+            'discount_percentage', 'discount_amount', 'start_date', 'end_date',
+            'current_usage_count', 'usage_limit', 'usage_percentage',
+            'created_by_name', 'is_currently_active', 'created_at'
+        ]
+
+    def get_usage_percentage(self, obj):
+        """Calculate usage percentage"""
+        if obj.usage_limit and obj.usage_limit > 0:
+            return round((obj.current_usage_count / obj.usage_limit) * 100, 1)
+        return None
+
+
+class PromotionUsageSerializer(serializers.ModelSerializer):
+    """Serializer for promotion usage tracking"""
+    promotion_name = serializers.CharField(source='promotion.name', read_only=True)
+    promotion_code = serializers.CharField(source='promotion.code', read_only=True)
     user_name = serializers.CharField(source='user.full_name', read_only=True)
     order_id = serializers.UUIDField(source='order.id', read_only=True)
     
     class Meta:
-        model = CouponUsage
-        fields = ['id', 'coupon', 'coupon_code', 'user', 'user_name', 'order', 'order_id',
-                  'discount_amount', 'created_at']
-        read_only_fields = ['id', 'coupon_code', 'user_name', 'order_id', 'created_at']
+        model = PromotionUsage
+        fields = [
+            'id', 'promotion', 'promotion_name', 'promotion_code',
+            'user', 'user_name', 'order', 'order_id',
+            'discount_amount', 'original_order_amount', 'final_order_amount',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
 
 
-class CouponValidationSerializer(serializers.Serializer):
-    """Serializer for validating coupon codes"""
-    code = serializers.CharField(max_length=20)
+class PromotionValidationSerializer(serializers.Serializer):
+    """Serializer for validating promotion codes"""
+    code = serializers.CharField(max_length=50)
     order_amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     restaurant_id = serializers.UUIDField(required=False)
-    
+
     def validate_code(self, value):
-        try:
-            coupon = Coupon.objects.get(code=value.upper())
-            if not coupon.is_valid:
-                raise serializers.ValidationError("This coupon is expired or no longer valid.")
-            return value.upper()
-        except Coupon.DoesNotExist:
-            raise serializers.ValidationError("Invalid coupon code.")
+        """Convert code to uppercase"""
+        return value.upper()
+
+
+class CampaignSerializer(serializers.ModelSerializer):
+    """Serializer for marketing campaigns"""
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
+    is_currently_active = serializers.BooleanField(read_only=True)
+    promotions = PromotionListSerializer(many=True, read_only=True)
+    budget_utilization_percentage = serializers.FloatField(source='budget_utilization', read_only=True)
+    
+    class Meta:
+        model = Campaign
+        fields = [
+            'id', 'name', 'description', 'campaign_type', 'is_active',
+            'start_date', 'end_date', 'promotions', 'target_user_roles',
+            'target_cities', 'budget', 'spent_amount', 'budget_utilization_percentage',
+            'impressions', 'clicks', 'conversions', 'created_by',
+            'created_by_name', 'is_currently_active', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'spent_amount', 'budget_utilization_percentage',
+            'impressions', 'clicks', 'conversions', 'created_by',
+            'created_by_name', 'is_currently_active', 'created_at', 'updated_at'
+        ]
 
 
 class LoyaltyProgramSerializer(serializers.ModelSerializer):
+    """Serializer for loyalty programs"""
+    
     class Meta:
         model = LoyaltyProgram
-        fields = ['id', 'name', 'description', 'points_per_dollar', 'points_redemption_value',
-                  'min_points_redemption', 'is_active', 'created_at', 'updated_at']
+        fields = [
+            'id', 'name', 'description', 'points_per_dollar', 'points_redemption_value',
+            'bronze_tier_threshold', 'silver_tier_threshold', 'gold_tier_threshold',
+            'platinum_tier_threshold', 'is_active', 'points_expiry_days',
+            'created_at', 'updated_at'
+        ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class LoyaltyAccountSerializer(serializers.ModelSerializer):
+class CustomerLoyaltyAccountSerializer(serializers.ModelSerializer):
+    """Serializer for customer loyalty accounts"""
     user_name = serializers.CharField(source='user.full_name', read_only=True)
-    program_name = serializers.CharField(source='program.name', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    program_name = serializers.CharField(source='loyalty_program.name', read_only=True)
     
     class Meta:
-        model = LoyaltyAccount
-        fields = ['id', 'user', 'user_name', 'program', 'program_name', 'points_balance',
-                  'total_points_earned', 'total_points_redeemed', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'user_name', 'program_name', 'points_balance',
-                           'total_points_earned', 'total_points_redeemed', 'created_at', 'updated_at']
+        model = CustomerLoyaltyAccount
+        fields = [
+            'id', 'user', 'user_name', 'user_email', 'loyalty_program',
+            'program_name', 'total_points_earned', 'total_points_redeemed',
+            'current_points_balance', 'current_tier', 'tier_progress',
+            'total_orders', 'total_spent', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'user_name', 'user_email', 'program_name',
+            'total_points_earned', 'total_points_redeemed', 'current_points_balance',
+            'tier_progress', 'total_orders', 'total_spent', 'created_at', 'updated_at'
+        ]
 
 
 class LoyaltyTransactionSerializer(serializers.ModelSerializer):
-    account_user_name = serializers.CharField(source='account.user.full_name', read_only=True)
+    """Serializer for loyalty transactions"""
+    account_user_name = serializers.CharField(source='loyalty_account.user.full_name', read_only=True)
     
     class Meta:
         model = LoyaltyTransaction
-        fields = ['id', 'account', 'account_user_name', 'type', 'points', 'description',
-                  'reference_order', 'balance_before', 'balance_after', 'created_at']
-        read_only_fields = ['id', 'account_user_name', 'balance_before', 'balance_after', 'created_at']
-
-
-class ReferralProgramSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ReferralProgram
-        fields = ['id', 'name', 'description', 'referrer_reward_type', 'referrer_reward_value',
-                  'referee_reward_type', 'referee_reward_value', 'min_referee_orders',
-                  'min_referee_order_amount', 'is_active', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-
-class ReferralSerializer(serializers.ModelSerializer):
-    referrer_name = serializers.CharField(source='referrer.full_name', read_only=True)
-    referee_name = serializers.CharField(source='referee.full_name', read_only=True)
-    program_name = serializers.CharField(source='program.name', read_only=True)
-    
-    class Meta:
-        model = Referral
-        fields = ['id', 'referrer', 'referrer_name', 'referee', 'referee_name', 'program',
-                  'program_name', 'referral_code', 'status', 'referee_orders_count',
-                  'referee_total_spent', 'completed_at', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'referrer_name', 'referee_name', 'program_name',
-                           'referral_code', 'referee_orders_count', 'referee_total_spent',
-                           'completed_at', 'created_at', 'updated_at']
-
-
-class FlashSaleSerializer(serializers.ModelSerializer):
-    is_ongoing = serializers.BooleanField(read_only=True)
-    restaurants = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
-    menu_items = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
-    
-    class Meta:
-        model = FlashSale
-        fields = ['id', 'name', 'description', 'start_time', 'end_time', 'discount_percentage',
-                  'restaurants', 'menu_items', 'max_orders', 'current_orders', 'is_active',
-                  'is_ongoing', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'current_orders', 'is_ongoing', 'created_at', 'updated_at']
-
-
-class PointsRedemptionSerializer(serializers.Serializer):
-    """Serializer for redeeming loyalty points"""
-    points = serializers.IntegerField(min_value=1)
-    
-    def validate_points(self, value):
-        user = self.context['request'].user
-        try:
-            account = user.loyalty_account
-            if account.points_balance < value:
-                raise serializers.ValidationError("Insufficient points balance.")
-            if value < account.program.min_points_redemption:
-                raise serializers.ValidationError(
-                    f"Minimum redemption is {account.program.min_points_redemption} points."
-                )
-            return value
-        except LoyaltyAccount.DoesNotExist:
-            raise serializers.ValidationError("No loyalty account found.")
-
-
-class ReferralCodeGenerationSerializer(serializers.Serializer):
-    """Serializer for generating referral codes"""
-    program_id = serializers.UUIDField()
-    
-    def validate_program_id(self, value):
-        try:
-            program = ReferralProgram.objects.get(id=value, is_active=True)
-            return value
-        except ReferralProgram.DoesNotExist:
-            raise serializers.ValidationError("Invalid or inactive referral program.")
+        fields = [
+            'id', 'loyalty_account', 'account_user_name', 'transaction_type',
+            'points', 'order', 'promotion', 'description', 'expiry_date',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'account_user_name', 'created_at']
