@@ -63,8 +63,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         return f"{self.full_name} ({self.email})"
     
     def is_restaurant_owner(self):
-        """Check if user is a restaurant owner by checking if they have a restaurant"""
-        return hasattr(self, 'restaurant')
+        """Check if user is a restaurant owner by checking if they have any restaurants"""
+        return self.restaurants.exists()
     
     def is_driver(self):
         """Check if user is a driver by checking if they have a driver profile"""

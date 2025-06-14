@@ -12,6 +12,7 @@ from orders.models import Order
 from .serializers import (
     RestaurantSerializer, 
     RestaurantListSerializer,
+    RestaurantWizardSerializer,  # Add this
     MenuCategorySerializer, 
     MenuCategoryWithItemsSerializer,
     MenuItemSerializer, 
@@ -49,7 +50,7 @@ class RestaurantViewSet(viewsets.ModelViewSet):
         queryset = Restaurant.objects.all()
         
         if self.request.user.is_restaurant_owner():
-            # If the user is a restaurant owner, filter to only their restaurant
+            # If the user is a restaurant owner, filter to their restaurants (multiple now)
             queryset = queryset.filter(user=self.request.user)
         elif self.request.user.is_superuser or self.request.user.is_staff:
             # If the user is authenticated but not an owner, show all open restaurants
@@ -80,10 +81,7 @@ class RestaurantViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        # Check if user already has a restaurant
-        if hasattr(user, 'restaurant'):
-            raise ValidationError({"detail": "User already has a restaurant."})
-        
+        # Note: Removed the check for existing restaurant since users can now have multiple restaurants
         serializer.save(user=user)
 
     @extend_schema(
@@ -118,24 +116,68 @@ class RestaurantViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @extend_schema(
-        summary="Get my restaurant",
-        description="Get the restaurant details for the currently authenticated restaurant owner."
+        summary="Get my restaurants",
+        description="Get all restaurants for the currently authenticated restaurant owner."
     )
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsRestaurantOwnerOnly])
     def mine(self, request):
-        try:
-            restaurant = request.user.restaurant
-            serializer = self.get_serializer(restaurant)
-            return Response(serializer.data)
-        except Restaurant.DoesNotExist:
+        restaurants = self.get_queryset().filter(user=request.user)
+        if not restaurants.exists():
             return Response(
-                {"detail": "You do not have an associated restaurant."},
+                {"detail": "You do not have any restaurants yet."},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except AttributeError:
+        
+        serializer = self.get_serializer(restaurants, many=True)
+        return Response({
+            "restaurants": serializer.data,
+            "count": restaurants.count()
+        })
+
+    @extend_schema(
+        summary="Create restaurant via wizard",
+        description="Create a new restaurant using comprehensive wizard data.",
+        request=RestaurantWizardSerializer,
+        responses={201: RestaurantWizardSerializer}
+    )
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated, IsRestaurantOwnerOnly])
+    def create_from_wizard(self, request):
+        """
+        Create a restaurant from wizard data with comprehensive validation and processing.
+        """
+        serializer = RestaurantWizardSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            try:
+                restaurant = serializer.save(user=request.user)
+                
+                # Return the created restaurant with full data
+                response_serializer = RestaurantWizardSerializer(restaurant)
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Restaurant created successfully!",
+                        "restaurant": response_serializer.data
+                    },
+                    status=status.HTTP_201_CREATED
+                )
+            except Exception as e:
+                return Response(
+                    {
+                        "success": False,
+                        "message": f"Error creating restaurant: {str(e)}",
+                        "errors": {"general": [str(e)]}
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        else:
             return Response(
-                {"detail": "No restaurant associated with this user account."}, 
-                status=status.HTTP_404_NOT_FOUND
+                {
+                    "success": False,
+                    "message": "Validation failed",
+                    "errors": serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
             )
 
     @extend_schema(

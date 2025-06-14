@@ -313,7 +313,7 @@ class RestaurantOwnerListView(generics.ListAPIView):
     """
     View to list all restaurant owners (Admin only).
     """
-    queryset = User.objects.filter(restaurant__isnull=False).distinct()
+    queryset = User.objects.filter(restaurant_profile__isnull=False).distinct()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
     
