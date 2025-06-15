@@ -65,14 +65,15 @@ def dashboard_statistics(request):
     Get dashboard statistics with filtering options.
     """
     user = request.user
-    
+    restaurant_id = request.query_params.get('restaurant_id')
+
     # Build base queryset based on user role
     if user.is_staff:
         # Admin can see all orders
         queryset = Order.objects.all()
-    elif user.is_restaurant_owner() and hasattr(user, 'restaurant'):
+    elif user.is_restaurant_owner():
         # Restaurant owner can only see their own orders
-        queryset = Order.objects.filter(restaurant=user.restaurant)
+        queryset = Order.objects.all()
     else:
         return Response(
             {"error": "You don't have permission to view dashboard statistics."},
@@ -80,7 +81,6 @@ def dashboard_statistics(request):
         )
     
     # Apply filters
-    restaurant_id = request.query_params.get('restaurant_id')
     if restaurant_id:
         if user.is_staff:
             # Admin can filter by any restaurant
@@ -215,9 +215,9 @@ def dashboard_recent_orders(request):
     if user.is_staff:
         # Admin can see all orders
         queryset = Order.objects.all()
-    elif user.is_restaurant_owner() and hasattr(user, 'restaurant'):
+    elif user.is_restaurant_owner():
         # Restaurant owner can only see their own orders
-        queryset = Order.objects.filter(restaurant=user.restaurant)
+        queryset = Order.objects.all()
     else:
         return Response(
             {"error": "You don't have permission to view dashboard orders."},
