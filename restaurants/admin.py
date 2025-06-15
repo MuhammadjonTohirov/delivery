@@ -23,7 +23,7 @@ class RestaurantAdmin(admin.ModelAdmin):
             'fields': ('location_lat', 'location_lng')
         }),
         ('Details', {
-            'fields': ('description', 'logo', 'is_open', 'opening_time', 'closing_time')
+            'fields': ('description', 'logo', 'is_open')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),

@@ -7,16 +7,16 @@ from django.db.models import Count, Avg, Q
 from django.shortcuts import get_object_or_404
 import uuid
 
-from .models import Restaurant, MenuCategory, MenuItem, RestaurantReview
+from .models import Restaurant, Menu, MenuCategory, MenuItem, RestaurantReview
 from orders.models import Order
 from .serializers import (
-    RestaurantSerializer, 
     RestaurantListSerializer,
-    RestaurantWizardSerializer,  # Add this
-    MenuCategorySerializer, 
-    MenuCategoryWithItemsSerializer,
-    MenuItemSerializer, 
-    RestaurantReviewSerializer
+    RestaurantSerializer,
+    MenuSerializer,
+    MenuCategorySerializer,
+    MenuItemSerializer,
+    RestaurantReviewSerializer,
+    RestaurantWizardSerializer
 )
 from .permissions import (
     IsRestaurantOwnerOrAdmin,
@@ -228,6 +228,65 @@ class RestaurantViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema_view(
+    list=extend_schema(summary="List menus", description="List all menus for the authenticated user"),
+    retrieve=extend_schema(summary="Get menu", description="Retrieve a specific menu"),
+    create=extend_schema(summary="Create menu", description="Create a new menu (Restaurant owner only)"),
+    update=extend_schema(summary="Update menu", description="Update a menu (Restaurant owner only)"),
+    partial_update=extend_schema(summary="Partial update menu", description="Partially update a menu (Restaurant owner only)"),
+    destroy=extend_schema(summary="Delete menu", description="Delete a menu (Restaurant owner only)"),
+)
+class MenuViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Menu model.
+    Restaurant owners can create menus for specific restaurants or for all their restaurants.
+    """
+    serializer_class = MenuSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['restaurant', 'is_active']
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'created_at']
+    
+    def get_queryset(self):
+        if self.request.user.is_authenticated:
+            if self.request.user.is_restaurant_owner():
+                # Restaurant owners can only see their own menus
+                return Menu.objects.filter(owner=self.request.user)
+            elif self.request.user.is_staff or self.request.user.is_superuser:
+                # Staff can see all menus
+                return Menu.objects.all()
+        return Menu.objects.none()
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [permissions.IsAuthenticated]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    
+    def perform_create(self, serializer):
+        # Validate that the restaurant belongs to the user if specified
+        restaurant = serializer.validated_data.get('restaurant')
+        if restaurant and restaurant.user != self.request.user:
+            raise PermissionDenied("You can only create menus for your own restaurants.")
+        serializer.save(owner=self.request.user)
+    
+    def perform_update(self, serializer):
+        # Validate that the restaurant belongs to the user if specified
+        restaurant = serializer.validated_data.get('restaurant')
+        if restaurant and restaurant.user != self.request.user:
+            raise PermissionDenied("You can only assign menus to your own restaurants.")
+        serializer.save()
+    
+    @action(detail=True, methods=['get'])
+    def items(self, request, pk=None):
+        """Get all menu items for this menu"""
+        menu = self.get_object()
+        items = MenuItem.objects.filter(menu=menu, is_available=True)
+        serializer = MenuItemSerializer(items, many=True)
+        return Response(serializer.data)
+
+
+@extend_schema_view(
     list=extend_schema(summary="List menu categories", description="List all menu categories for a restaurant"),
     retrieve=extend_schema(summary="Get menu category", description="Retrieve a specific menu category"),
     create=extend_schema(summary="Create menu category", description="Create a new menu category (Restaurant owner only)"),
@@ -270,7 +329,7 @@ class MenuCategoryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        restaurant = request.user.restaurant
+        restaurant = request.user.restaurants.first()
         categories = MenuCategory.objects.filter(
             items__restaurant=restaurant
         ).distinct().order_by('order', 'name')
@@ -294,7 +353,7 @@ class MenuItemViewSet(viewsets.ModelViewSet):
     """
     serializer_class = MenuItemSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['restaurant', 'category', 'is_available', 'is_featured']
+    filterset_fields = ['restaurant', 'menu', 'category', 'is_available', 'is_featured']
     search_fields = ['name', 'description', 'ingredients', 'allergens']
     ordering_fields = ['name', 'price', 'created_at']
     
@@ -319,7 +378,7 @@ class MenuItemViewSet(viewsets.ModelViewSet):
             category = serializer.validated_data.get('category')
             if category and category.restaurant != self.request.user.restaurant:
                 raise ValidationError({"category": "Category must belong to your restaurant."})
-                
+            
             serializer.save(restaurant=self.request.user.restaurant)
         else:
             raise PermissionDenied("You do not have permission to create this resource.")
@@ -328,7 +387,7 @@ class MenuItemViewSet(viewsets.ModelViewSet):
         # Validate that category belongs to the restaurant if provided
         category = serializer.validated_data.get('category')
         if category and not self.request.user.is_staff:
-            restaurant = self.request.user.restaurant
+            restaurant = self.request.user.restaurants.first()
             if category.restaurant != restaurant:
                 raise ValidationError({"category": "Category must belong to your restaurant."})
         
@@ -338,7 +397,7 @@ class MenuItemViewSet(viewsets.ModelViewSet):
     def my_items(self, request):
         """Get all menu items for the current restaurant owner"""
         try:
-            restaurant = request.user.restaurant
+            restaurant = request.user.restaurants.first()
             items = MenuItem.objects.filter(restaurant=restaurant)
             
             # Apply filters from query params
@@ -413,7 +472,7 @@ class RestaurantStatisticsViewSet(viewsets.ViewSet):
         
         # For restaurant owners, ensure they can only access their own restaurant
         if not request.user.is_staff and hasattr(request.user, 'restaurant'):
-            if request.user.restaurant.id != restaurant_id:
+            if request.user.restaurants.first().id != restaurant_id:
                 raise PermissionDenied("You can only access statistics for your own restaurant.")
         
         # Get the restaurant

@@ -131,6 +131,26 @@ class RestaurantDeliveryHours(models.Model):
         return f"{self.restaurant.name} - Delivery {self.get_day_of_week_display()}"
 
 
+class Menu(models.Model):
+    """Menu model that can be associated with one or all restaurants of an owner"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='menus', null=True, blank=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='menus')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        if self.restaurant:
+            return f"{self.name} - {self.restaurant.name}"
+        return f"{self.name} - All Restaurants"
+
+
 # Keep existing models for backwards compatibility
 class MenuCategory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -152,6 +172,7 @@ class MenuCategory(models.Model):
 class MenuItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='menu_items')
+    menu = models.ForeignKey(Menu, on_delete=models.CASCADE, related_name='items', null=True, blank=True)
     category = models.ForeignKey(MenuCategory, on_delete=models.SET_NULL, related_name='items', null=True, blank=True)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)

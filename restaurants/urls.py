@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     RestaurantStatisticsViewSet,
     RestaurantViewSet,
+    MenuViewSet,
     MenuCategoryViewSet,
     MenuItemViewSet,
     RestaurantReviewViewSet
@@ -11,6 +12,7 @@ from .views import (
 # Create a router and register our viewsets with it
 router = DefaultRouter()
 router.register(r'list', RestaurantViewSet, basename='restaurant')
+router.register(r'menus', MenuViewSet, basename='menu')
 router.register(r'categories', MenuCategoryViewSet, basename='category')
 router.register(r'menu-items', MenuItemViewSet, basename='menu-item')
 router.register(r'reviews', RestaurantReviewViewSet, basename='review')
