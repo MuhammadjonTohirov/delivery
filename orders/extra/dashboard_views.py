@@ -87,7 +87,8 @@ def dashboard_statistics(request):
             queryset = queryset.filter(restaurant_id=restaurant_id)
         elif user.is_restaurant_owner():
             # Restaurant owner can only filter by their own restaurant
-            if str(user.restaurant.id) != restaurant_id:
+            restaurants = user.restaurants
+            if not restaurants.filter(id=restaurant_id).exists():
                 return Response(
                     {"error": "You can only view statistics for your own restaurant."},
                     status=status.HTTP_403_FORBIDDEN
@@ -230,7 +231,8 @@ def dashboard_recent_orders(request):
         if user.is_staff:
             queryset = queryset.filter(restaurant_id=restaurant_id)
         elif user.is_restaurant_owner():
-            if str(user.restaurant.id) != restaurant_id:
+            restaurants = user.restaurants
+            if not restaurants.filter(id=restaurant_id).exists():
                 return Response(
                     {"error": "You can only view orders for your own restaurant."},
                     status=status.HTTP_403_FORBIDDEN

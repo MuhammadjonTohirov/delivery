@@ -37,7 +37,8 @@ class IsRestaurantOwnerOrAdmin(permissions.BasePermission):
             
             # For menu categories and items
             if hasattr(obj, 'restaurant'):
-                return obj.restaurant == request.user.restaurant
+                restaurants = request.user.restaurants
+                return obj.restaurant in restaurants
                 
         return False
 

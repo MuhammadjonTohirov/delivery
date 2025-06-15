@@ -34,7 +34,7 @@ def ajax_update_order_status(request):
             order_id = data.get('order_id')
             new_status = data.get('status')
             
-            order = Order.objects.get(id=order_id, restaurant=request.user.restaurant)
+            order = Order.objects.get(id=order_id, restaurant=request.user.restaurants.first())
             order.status = new_status
             order.save()
             

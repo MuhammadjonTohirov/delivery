@@ -34,7 +34,7 @@ class AnalyticsPermission(permissions.BasePermission):
         
         if request.user.is_restaurant_owner():
             if hasattr(obj, 'restaurant'):
-                return obj.restaurant and hasattr(request.user, 'restaurant') and obj.restaurant == request.user.restaurant
+                return obj.restaurant and hasattr(request.user, 'restaurants') and obj.restaurant == request.user.restaurants.first()
         
         return False
 
@@ -62,7 +62,7 @@ class AnalyticsEventViewSet(viewsets.ModelViewSet):
             return AnalyticsEvent.objects.all()
         
         if user.is_restaurant_owner() and hasattr(user, 'restaurant'):
-            return AnalyticsEvent.objects.filter(restaurant=user.restaurant)
+            return AnalyticsEvent.objects.filter(restaurant=user.restaurants.first())
         
         return AnalyticsEvent.objects.none()
 
@@ -118,7 +118,7 @@ class RestaurantAnalyticsViewSet(viewsets.ViewSet):
                     status=status.HTTP_404_NOT_FOUND
                 )
         elif user.is_restaurant_owner() and hasattr(user, 'restaurant'):
-            restaurant = user.restaurant
+            restaurant = user.restaurants.first()
         else:
             return Response(
                 {"error": "No restaurant specified or accessible"},
@@ -492,7 +492,7 @@ class DashboardStatsViewSet(viewsets.ReadOnlyModelViewSet):
             return DashboardStats.objects.all()
         
         if user.is_restaurant_owner() and hasattr(user, 'restaurant'):
-            return DashboardStats.objects.filter(restaurant=user.restaurant)
+            return DashboardStats.objects.filter(restaurant=user.restaurants.first())
         
         return DashboardStats.objects.none()
 
@@ -518,7 +518,7 @@ class RevenueMetricsViewSet(viewsets.ReadOnlyModelViewSet):
             return RevenueMetrics.objects.all()
         
         if user.is_restaurant_owner() and hasattr(user, 'restaurant'):
-            return RevenueMetrics.objects.filter(restaurant=user.restaurant)
+            return RevenueMetrics.objects.filter(restaurant=user.restaurants.first())
         
         return RevenueMetrics.objects.none()
 
@@ -544,7 +544,7 @@ class CustomerInsightsViewSet(viewsets.ReadOnlyModelViewSet):
             return CustomerInsights.objects.all()
         
         if user.is_restaurant_owner() and hasattr(user, 'restaurant'):
-            return CustomerInsights.objects.filter(restaurant=user.restaurant)
+            return CustomerInsights.objects.filter(restaurant=user.restaurants.first())
         
         return CustomerInsights.objects.none()
 
@@ -570,6 +570,6 @@ class PopularMenuItemsViewSet(viewsets.ReadOnlyModelViewSet):
             return PopularMenuItems.objects.all()
         
         if user.is_restaurant_owner() and hasattr(user, 'restaurant'):
-            return PopularMenuItems.objects.filter(restaurant=user.restaurant)
+            return PopularMenuItems.objects.filter(restaurant=user.restaurants.first())
         
         return PopularMenuItems.objects.none()

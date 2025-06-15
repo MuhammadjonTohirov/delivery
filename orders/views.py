@@ -87,8 +87,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             qs = Order.objects.all().select_related('customer', 'restaurant')
         elif user.is_customer() and not (user.is_restaurant_owner() or user.is_driver()):
             qs = Order.objects.filter(customer=user).select_related('customer', 'restaurant')
-        elif user.is_restaurant_owner() and hasattr(user, 'restaurant'):
-            qs = Order.objects.filter(restaurant=user.restaurant).select_related('customer', 'restaurant')
+        elif user.is_restaurant_owner():
+            restaurants = user.restaurants.all()
+            qs = Order.objects.filter(restaurant__in=restaurants).select_related('customer', 'restaurant')
         elif user.is_driver() and hasattr(user, 'driver_profile'):
             qs = Order.objects.filter(driver_task__driver__user=user).select_related('customer', 'restaurant')
         
@@ -145,7 +146,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
         
         # Ensure the restaurant owns this order
-        if not hasattr(request.user, 'restaurant') or order.restaurant != request.user.restaurant:
+        restaurants = request.user.restaurants
+        if not hasattr(request.user, 'restaurants') or order.restaurant not in restaurants:
             return Response(
                 {"error": "You can only perform actions on orders for your restaurant."},
                 status=status.HTTP_403_FORBIDDEN
@@ -178,7 +180,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         note = request.data.get('note', 'Order is ready for pickup.')
 
         # Ensure the restaurant owns this order
-        if not hasattr(request.user, 'restaurant') or order.restaurant != request.user.restaurant:
+        if not hasattr(request.user, 'restaurants') or order.restaurant != user.restaurants.first():
             return Response(
                 {"error": "You can only perform actions on orders for your restaurant."},
                 status=status.HTTP_403_FORBIDDEN
@@ -210,7 +212,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         note = request.data.get('note', 'Order is being prepared.')
         
         # Ensure the restaurant owns this order
-        if not hasattr(request.user, 'restaurant') or order.restaurant != request.user.restaurant:
+        if not hasattr(request.user, 'restaurants') or order.restaurant != user.restaurants.first():
             return Response(
                 {"error": "You can only perform actions on orders for your restaurant."},
                 status=status.HTTP_403_FORBIDDEN
@@ -261,3 +263,58 @@ class OrderViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(order)
         return Response(serializer.data)
+    
+    @extend_schema(
+        summary="Update order status",
+        description="Update order status (Restaurant owner or Admin only)"
+    )
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def update_status(self, request, pk=None):
+        order = self.get_object()
+        new_status = request.data.get('status')
+        note = request.data.get('note', '')
+        
+        if not new_status:
+            return Response(
+                {"error": "Status is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if the new status is valid
+        valid_statuses = [choice[0] for choice in Order.ORDER_STATUS_CHOICES]
+        if new_status not in valid_statuses:
+            return Response(
+                {"error": f"Invalid status. Valid options are: {', '.join(valid_statuses)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Permission check: only restaurant owners (for their orders) or admins can update status
+        user = request.user
+        if not user.is_staff:
+            if user.is_restaurant_owner():
+                # Check if the order belongs to one of the user's restaurants
+                user_restaurants = user.restaurants.all()
+                if order.restaurant not in user_restaurants:
+                    return Response(
+                        {"error": "You can only update status for orders from your restaurants."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            else:
+                return Response(
+                    {"error": "You don't have permission to update order status."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        # Update the status
+        try:
+            order.update_status(new_status, user, notes=note)
+            serializer = self.get_serializer(order)
+            return Response({
+                "message": f"Order status updated to {new_status}",
+                "order": serializer.data
+            })
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to update status: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

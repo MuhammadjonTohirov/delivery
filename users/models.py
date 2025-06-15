@@ -80,10 +80,24 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
 
 class CustomerProfile(models.Model):
+    CURRENCY_CHOICES = [
+        ('USD', 'US Dollar ($)'),
+        ('EUR', 'Euro (€)'),
+        ('GBP', 'British Pound (£)'),
+        ('CAD', 'Canadian Dollar (C$)'),
+        ('AUD', 'Australian Dollar (A$)'),
+        ('JPY', 'Japanese Yen (¥)'),
+        ('CNY', 'Chinese Yuan (¥)'),
+        ('INR', 'Indian Rupee (₹)'),
+        ('BRL', 'Brazilian Real (R$)'),
+        ('MXN', 'Mexican Peso ($)'),
+    ]
+    
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='customer_profile')
     default_address = models.TextField(blank=True, null=True)
     default_location_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     default_location_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    preferred_currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='USD')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -103,10 +117,24 @@ class DriverProfile(models.Model):
 
 
 class RestaurantProfile(models.Model):
+    CURRENCY_CHOICES = [
+        ('USD', 'US Dollar ($)'),
+        ('EUR', 'Euro (€)'),
+        ('GBP', 'British Pound (£)'),
+        ('CAD', 'Canadian Dollar (C$)'),
+        ('AUD', 'Australian Dollar (A$)'),
+        ('JPY', 'Japanese Yen (¥)'),
+        ('CNY', 'Chinese Yuan (¥)'),
+        ('INR', 'Indian Rupee (₹)'),
+        ('BRL', 'Brazilian Real (R$)'),
+        ('MXN', 'Mexican Peso ($)'),
+    ]
+    
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='restaurant_profile')
     business_name = models.CharField(max_length=100)
     business_address = models.TextField()
     business_registration_number = models.CharField(max_length=50, null=True, blank=True)
+    preferred_currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='USD')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
