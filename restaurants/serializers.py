@@ -28,7 +28,7 @@ class MenuItemSerializer(serializers.ModelSerializer):
         model = MenuItem
         fields = [
             'id', 'restaurant', 'restaurant_name', 'menu', 'menu_name', 'category', 'category_name',
-            'name', 'description', 'price', 'image', 'is_available', 'is_featured',
+            'name', 'description', 'price', 'currency', 'image', 'is_available', 'is_featured',
             'preparation_time', 'ingredients', 'allergens', 'calories', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']

@@ -2,12 +2,14 @@ import django_filters
 from django.db.models import Q
 from .models import Order
 from restaurants.models import Restaurant, MenuCategory
+from users.models import CustomUser
 
 
 class OrderFilter(django_filters.FilterSet):
     """
     Filter class for Order model with support for:
     - Restaurant filtering
+    - Customer filtering
     - Date range filtering
     - Category (menu category) filtering
     - Status filtering
@@ -18,6 +20,13 @@ class OrderFilter(django_filters.FilterSet):
     restaurant = django_filters.ModelChoiceFilter(
         queryset=Restaurant.objects.all(),
         field_name='restaurant',
+        to_field_name='id'
+    )
+    
+    # Customer filter
+    customer = django_filters.ModelChoiceFilter(
+        queryset=CustomUser.objects.all(),
+        field_name='customer',
         to_field_name='id'
     )
     
@@ -51,7 +60,7 @@ class OrderFilter(django_filters.FilterSet):
     
     class Meta:
         model = Order
-        fields = ['restaurant', 'date_from', 'date_to', 'category', 'status', 'search']
+        fields = ['restaurant', 'customer', 'date_from', 'date_to', 'category', 'status', 'search']
     
     def filter_by_category(self, queryset, name, value):
         """Filter orders that contain items from the specified category"""

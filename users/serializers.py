@@ -52,7 +52,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class CustomerProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerProfile
-        fields = ['default_address', 'default_location_lat', 'default_location_lng', 'preferred_currency']
+        fields = ['default_address', 'default_location_lat', 'default_location_lng']
 
 
 class DriverProfileSerializer(serializers.ModelSerializer):
@@ -64,7 +64,7 @@ class DriverProfileSerializer(serializers.ModelSerializer):
 class RestaurantProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = RestaurantProfile
-        fields = ['business_name', 'business_address', 'business_registration_number', 'preferred_currency']
+        fields = ['business_name', 'business_address', 'business_registration_number']
 
 
 class UserSerializer(serializers.ModelSerializer):
