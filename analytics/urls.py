@@ -9,6 +9,7 @@ from .views import (
     CustomerInsightsViewSet,
     PopularMenuItemsViewSet
 )
+from .analytics_views import business_performance, menu_performance, customer_analytics
 
 router = DefaultRouter()
 router.register(r'events', AnalyticsEventViewSet, basename='analytics-event')
@@ -22,5 +23,11 @@ router.register(r'popular-items', PopularMenuItemsViewSet, basename='popular-ite
 app_name = 'analytics'
 
 urlpatterns = [
+    # New analytics endpoints
+    path('business-performance/', business_performance, name='business-performance'),
+    path('menu-performance/', menu_performance, name='menu-performance'),
+    path('customer-analytics/', customer_analytics, name='customer-analytics'),
+    
+    # Existing endpoints
     path('', include(router.urls)),
 ]

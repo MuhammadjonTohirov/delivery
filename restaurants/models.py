@@ -170,6 +170,11 @@ class MenuCategory(models.Model):
 
 
 class MenuItem(models.Model):
+    CURRENCY_CHOICES = [
+        ('USD', 'US Dollar ($)'),
+        ('UZS', 'Uzbek Som (UZS)'),
+    ]
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='menu_items')
     menu = models.ForeignKey(Menu, on_delete=models.CASCADE, related_name='items', null=True, blank=True)
@@ -177,6 +182,7 @@ class MenuItem(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='USD')
     image = models.ImageField(upload_to='restaurant/menu_items/', null=True, blank=True)
     is_available = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)

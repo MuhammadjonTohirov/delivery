@@ -43,7 +43,7 @@ class MenuCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(MenuItem)
 class MenuItemAdmin(admin.ModelAdmin):
-    list_display = ('name', 'restaurant', 'category', 'price', 'is_available', 'is_featured')
+    list_display = ('name', 'restaurant', 'category', 'currency', 'price', 'is_available', 'is_featured')
     list_filter = ('restaurant', 'category', 'is_available', 'is_featured')
     search_fields = ('name', 'restaurant__name', 'category__name')
     readonly_fields = ('id', 'created_at', 'updated_at')
@@ -52,7 +52,7 @@ class MenuItemAdmin(admin.ModelAdmin):
             'fields': ('id', 'restaurant', 'category', 'name')
         }),
         ('Details', {
-            'fields': ('description', 'price', 'image', 'preparation_time')
+            'fields': ('description', 'price', 'currency', 'image', 'preparation_time')
         }),
         ('Status', {
             'fields': ('is_available', 'is_featured')

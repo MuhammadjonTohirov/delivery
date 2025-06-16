@@ -22,6 +22,7 @@ urlpatterns = [
     # Core Business Operations
     path('api/restaurants/', include('restaurants.urls')),
     path('api/orders/', include('orders.urls')),
+    path('api/customers/', include('orders.customers_urls')),
     path('api/cart/', include('cart.urls')),
     
     # Delivery & Logistics

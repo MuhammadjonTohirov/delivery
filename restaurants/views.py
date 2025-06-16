@@ -353,7 +353,7 @@ class MenuItemViewSet(viewsets.ModelViewSet):
     """
     serializer_class = MenuItemSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['restaurant', 'menu', 'category', 'is_available', 'is_featured']
+    filterset_fields = ['restaurant', 'menu', 'category', 'currency', 'is_available', 'is_featured']
     search_fields = ['name', 'description', 'ingredients', 'allergens']
     ordering_fields = ['name', 'price', 'created_at']
     

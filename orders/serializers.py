@@ -42,8 +42,8 @@ class RestaurantDetailSerializer(serializers.ModelSerializer):
 
 
 class CoordinatesSerializer(serializers.Serializer): # Must be defined before DeliveryAddressSerializer
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, source='delivery_lat', required=False, allow_null=True)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, source='delivery_lng', required=False, allow_null=True)
+    lat = serializers.DecimalField(max_digits=9, decimal_places=6, source='delivery_lat', required=False, allow_null=True)
+    lng = serializers.DecimalField(max_digits=9, decimal_places=6, source='delivery_lng', required=False, allow_null=True)
 
 
 class DeliveryAddressSerializer(serializers.ModelSerializer):
@@ -90,11 +90,12 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     menu_item_name = serializers.CharField(source='menu_item.name', read_only=True)
+    currency = serializers.CharField(source='menu_item.currency', read_only=True)
     
     class Meta:
         model = OrderItem
-        fields = ['id', 'menu_item', 'menu_item_name', 'quantity', 'unit_price', 'subtotal', 'notes']
-        read_only_fields = ['id', 'unit_price', 'subtotal', 'menu_item_name']
+        fields = ['id', 'menu_item', 'menu_item_name', 'quantity', 'unit_price', 'subtotal', 'currency', 'notes']
+        read_only_fields = ['id', 'unit_price', 'subtotal', 'menu_item_name', 'currency']
     
     def validate_menu_item(self, value):
         if not value.is_available:
@@ -232,15 +233,24 @@ class OrderListSerializer(serializers.ModelSerializer):
     item_count = serializers.SerializerMethodField()
     items = OrderItemSerializer(many=True, read_only=True) # Added for order items
     status_display = serializers.CharField(source='get_status_display', read_only=True) # Added for display status
+    primary_currency = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = ['id', 'customer_name', 'restaurant_name', 'status', 'status_display',
                   'delivery_address', 'delivery_fee', 'notes', # Added fields
-                  'total_price', 'created_at', 'item_count', 'items'] # Added items
+                  'total_price', 'primary_currency', 'created_at', 'item_count', 'items'] # Added items
 
     def get_item_count(self, obj) -> int:
         return obj.items.count()
+    
+    def get_primary_currency(self, obj) -> str:
+        """Get the most common currency in the order items"""
+        from collections import Counter
+        currencies = [item.menu_item.currency for item in obj.items.all()]
+        if currencies:
+            return Counter(currencies).most_common(1)[0][0]
+        return 'USD'
 
 
 # --- Additional Detail Serializers ---
@@ -249,6 +259,7 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='menu_item.name', read_only=True)
     description = serializers.CharField(source='menu_item.description', read_only=True)
     totalPrice = serializers.SerializerMethodField(read_only=True)
+    currency = serializers.CharField(source='menu_item.currency', read_only=True)
     imageUrl = serializers.ImageField(source='menu_item.image', read_only=True, allow_null=True)
     category = serializers.CharField(source='menu_item.category.name', read_only=True, allow_null=True)
     customizations = serializers.SerializerMethodField(read_only=True) # Placeholder
@@ -258,9 +269,9 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'name', 'description', 'quantity', 'unitPrice', 'totalPrice',
+        fields = ['id', 'name', 'description', 'quantity', 'unitPrice', 'totalPrice', 'currency',
                   'imageUrl', 'category', 'customizations', 'specialInstructions']
-        read_only_fields = ['id', 'name', 'description', 'quantity', 'unitPrice', 'totalPrice',
+        read_only_fields = ['id', 'name', 'description', 'quantity', 'unitPrice', 'totalPrice', 'currency',
                             'imageUrl', 'category', 'customizations', 'specialInstructions']
 
     def get_totalPrice(self, obj):
@@ -278,11 +289,12 @@ class PricingDetailSerializer(serializers.ModelSerializer):
     tip = serializers.SerializerMethodField() # Placeholder
     total = serializers.DecimalField(source='total_price', max_digits=10, decimal_places=2, read_only=True)
     deliveryFee = serializers.DecimalField(source='delivery_fee', max_digits=10, decimal_places=2, read_only=True)
+    currency = serializers.SerializerMethodField()
     # discount is already on Order model
 
     class Meta:
         model = Order
-        fields = ['subtotal', 'deliveryFee', 'serviceFee', 'tax', 'tip', 'discount', 'total']
+        fields = ['subtotal', 'deliveryFee', 'serviceFee', 'tax', 'tip', 'discount', 'total', 'currency']
         read_only_fields = fields
 
     def get_subtotal(self, obj):
@@ -300,6 +312,14 @@ class PricingDetailSerializer(serializers.ModelSerializer):
     def get_tip(self, obj):
         # Placeholder
         return None
+    
+    def get_currency(self, obj):
+        """Get the primary currency of the order"""
+        from collections import Counter
+        currencies = [item.menu_item.currency for item in obj.items.all()]
+        if currencies:
+            return Counter(currencies).most_common(1)[0][0]
+        return 'USD'
 
 
 class PaymentDetailSerializer(serializers.Serializer): # No model backing this directly for now
@@ -441,6 +461,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     restaurant = RestaurantDetailSerializer(read_only=True)
     customer = CustomerDetailSerializer(read_only=True)
     deliveryAddress = DeliveryAddressSerializer(source='*', read_only=True) # Pass the whole Order instance
+    items = OrderItemDetailSerializer(many=True, read_only=True) # Use detailed serializer for items
     pricing = PricingDetailSerializer(source='*', read_only=True) # Pass the whole Order instance
     payment = PaymentDetailSerializer(source='*', read_only=True) # Pass the whole Order instance (all placeholders)
     delivery = DeliveryDetailSerializer(source='*', read_only=True) # Pass the whole Order instance

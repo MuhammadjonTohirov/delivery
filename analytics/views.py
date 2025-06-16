@@ -1,22 +1,22 @@
-from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework import status, permissions, viewsets
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from django.db.models import Count, Sum, Avg, Q, F
+from django.db.models.functions import TruncWeek, TruncMonth
+from django.utils.dateparse import parse_date
 from django.utils import timezone
 from datetime import datetime, timedelta, date
-from django.db.models.functions import TruncDate, TruncHour, TruncWeek, TruncMonth
+from collections import defaultdict, Counter
 
-from .models import AnalyticsEvent, DashboardStats, RevenueMetrics, CustomerInsights, PopularMenuItems
-from .serializers import (
-    AnalyticsEventSerializer, DashboardStatsSerializer, RevenueMetricsSerializer,
-    CustomerInsightsSerializer, PopularMenuItemsSerializer, RestaurantDashboardSerializer,
-    PlatformDashboardSerializer, DateRangeSerializer
-)
+from analytics.serializers import AnalyticsEventSerializer, RestaurantDashboardSerializer, PlatformDashboardSerializer, DashboardStatsSerializer, RevenueMetricsSerializer, CustomerInsightsSerializer, PopularMenuItemsSerializer
+from .models import *
+from orders.models import Order, OrderItem
+from restaurants.models import MenuItem, MenuCategory, Restaurant, RestaurantReview
+from users.models import DriverProfile
+from users.models import CustomUser
 from users.permissions import IsRestaurantOwner, IsAdminUser
-from orders.models import Order
-from restaurants.models import Restaurant, MenuItem, RestaurantReview
-from users.models import CustomUser, DriverProfile
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema, OpenApiParameter, extend_schema_view
+from drf_spectacular.types import OpenApiTypes
 
 
 class AnalyticsPermission(permissions.BasePermission):
@@ -25,9 +25,10 @@ class AnalyticsPermission(permissions.BasePermission):
     - Restaurant owners can view their own analytics
     - Admins can view all analytics
     """
+    
     def has_permission(self, request, view):
         return request.user.is_authenticated
-    
+
     def has_object_permission(self, request, view, obj):
         if request.user.is_staff:
             return True
