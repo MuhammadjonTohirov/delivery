@@ -13,6 +13,8 @@ from users.permissions import IsRestaurantOwner
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
+from utils.restaurant_helpers import get_restaurant_for_user
+
 
 @extend_schema(
     summary="Get business performance analytics",
@@ -90,13 +92,19 @@ def business_performance(request):
     previous_date_from, previous_date_to = get_previous_period(date_from, date_to)
     
     # Base queryset
-    orders_queryset = Order.objects.filter(restaurant__user=user)
+    if user.is_staff or user.is_superuser:
+        # Admin users can access all restaurants
+        orders_queryset = Order.objects.all()
+    else:
+        # Regular users can only access their own restaurants
+        orders_queryset = Order.objects.filter(restaurant__user=user)
     
     # Apply restaurant filter
     restaurant_id = request.query_params.get('restaurant')
     if restaurant_id:
         try:
-            restaurant = Restaurant.objects.get(id=restaurant_id, user=user)
+            # filter by restaurant_id and user if user is not a superuser or staff
+            restaurant = get_restaurant_for_user(restaurant_id, user)
             orders_queryset = orders_queryset.filter(restaurant=restaurant)
         except Restaurant.DoesNotExist:
             return Response(
@@ -215,18 +223,27 @@ def menu_performance(request):
     date_from, date_to = get_date_range(request)
     
     # Base queryset
-    order_items_queryset = OrderItem.objects.filter(
-        order__restaurant__user=user,
-        order__created_at__date__gte=date_from,
-        order__created_at__date__lte=date_to,
-        order__status__in=['DELIVERED', 'PICKED_UP']
-    )
+    if user.is_staff or user.is_superuser:
+        # Admin users can access all restaurants
+        order_items_queryset = OrderItem.objects.filter(
+            order__created_at__date__gte=date_from,
+            order__created_at__date__lte=date_to,
+            order__status__in=['DELIVERED', 'PICKED_UP']
+        )
+    else:
+        # Regular users can only access their own restaurants
+        order_items_queryset = OrderItem.objects.filter(
+            order__restaurant__user=user,
+            order__created_at__date__gte=date_from,
+            order__created_at__date__lte=date_to,
+            order__status__in=['DELIVERED', 'PICKED_UP']
+        )
     
     # Apply restaurant filter
     restaurant_id = request.query_params.get('restaurant')
     if restaurant_id:
         try:
-            restaurant = Restaurant.objects.get(id=restaurant_id, user=user)
+            restaurant = get_restaurant_for_user(restaurant_id, user)
             order_items_queryset = order_items_queryset.filter(order__restaurant=restaurant)
         except Restaurant.DoesNotExist:
             return Response(
@@ -238,8 +255,7 @@ def menu_performance(request):
     top_items_by_quantity = order_items_queryset.values(
         'menu_item__id',
         'menu_item__name',
-        'menu_item__price',
-        'menu_item__currency'
+        'menu_item__price'
     ).annotate(
         total_quantity=Sum('quantity'),
         total_revenue=Sum(F('quantity') * F('unit_price'))
@@ -249,8 +265,7 @@ def menu_performance(request):
     top_items_by_revenue = order_items_queryset.values(
         'menu_item__id',
         'menu_item__name',
-        'menu_item__price',
-        'menu_item__currency'
+        'menu_item__price'
     ).annotate(
         total_quantity=Sum('quantity'),
         total_revenue=Sum(F('quantity') * F('unit_price'))
@@ -267,12 +282,15 @@ def menu_performance(request):
     ).order_by('-total_revenue')
     
     # Format response
+    from utils.currency_helpers import get_default_currency
+    default_currency = get_default_currency()
+    
     top_by_quantity = [
         {
             'item_id': str(item['menu_item__id']),
             'name': item['menu_item__name'],
             'price': str(item['menu_item__price']),
-            'currency': item['menu_item__currency'],
+            'currency': default_currency,
             'total_quantity': item['total_quantity'],
             'total_revenue': str(item['total_revenue'])
         }
@@ -284,7 +302,7 @@ def menu_performance(request):
             'item_id': str(item['menu_item__id']),
             'name': item['menu_item__name'],
             'price': str(item['menu_item__price']),
-            'currency': item['menu_item__currency'],
+            'currency': default_currency,
             'total_quantity': item['total_quantity'],
             'total_revenue': str(item['total_revenue'])
         }
@@ -343,13 +361,18 @@ def customer_analytics(request):
     previous_date_from, previous_date_to = get_previous_period(date_from, date_to)
     
     # Base queryset
-    orders_queryset = Order.objects.filter(restaurant__user=user)
+    if user.is_staff or user.is_superuser:
+        # Admin users can access all restaurants
+        orders_queryset = Order.objects.all()
+    else:
+        # Regular users can only access their own restaurants
+        orders_queryset = Order.objects.filter(restaurant__user=user)
     
     # Apply restaurant filter
     restaurant_id = request.query_params.get('restaurant')
     if restaurant_id:
         try:
-            restaurant = Restaurant.objects.get(id=restaurant_id, user=user)
+            restaurant = get_restaurant_for_user(restaurant_id, user)
             orders_queryset = orders_queryset.filter(restaurant=restaurant)
         except Restaurant.DoesNotExist:
             return Response(

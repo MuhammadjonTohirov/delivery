@@ -8,6 +8,7 @@ from .models import Order
 from users.models import CustomUser
 from restaurants.models import Restaurant
 from users.permissions import IsRestaurantOwner
+from utils.restaurant_helpers import get_restaurant_for_user, filter_restaurants_for_user
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
@@ -95,14 +96,19 @@ def customers_list(request):
     user = request.user
     
     # Get the base queryset of orders from user's restaurants
-    orders_queryset = Order.objects.filter(restaurant__user=user)
+    if user.is_staff or user.is_superuser:
+        # Admin users can access all restaurants
+        orders_queryset = Order.objects.all()
+    else:
+        # Regular users can only access their own restaurants
+        orders_queryset = Order.objects.filter(restaurant__user=user)
     
     # Apply filters
     restaurant_id = request.query_params.get('restaurant')
     if restaurant_id:
         # Verify the restaurant belongs to the user
         try:
-            restaurant = Restaurant.objects.get(id=restaurant_id, user=user)
+            restaurant = get_restaurant_for_user(restaurant_id, user)
             orders_queryset = orders_queryset.filter(restaurant=restaurant)
         except Restaurant.DoesNotExist:
             return Response(
@@ -278,10 +284,15 @@ def customer_summary(request, customer_id):
         )
     
     # Get orders from user's restaurants for this customer
-    orders = Order.objects.filter(
-        customer=customer,
-        restaurant__user=user
-    )
+    if user.is_staff or user.is_superuser:
+        # Admin users can access all orders for the customer
+        orders = Order.objects.filter(customer=customer)
+    else:
+        # Regular users can only access orders from their own restaurants
+        orders = Order.objects.filter(
+            customer=customer,
+            restaurant__user=user
+        )
     
     if not orders.exists():
         return Response(

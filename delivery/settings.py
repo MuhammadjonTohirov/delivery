@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'geography.apps.GeographyConfig',
     'cart.apps.CartConfig',
     'analytics.apps.AnalyticsConfig',
+    'settings.apps.SettingsConfig',
 ]
 
 MIDDLEWARE = [
@@ -85,6 +86,18 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+# Cache configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 3600,  # 1 hour default timeout
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+        }
     }
 }
 
