@@ -87,6 +87,12 @@ class UserSerializer(serializers.ModelSerializer):
             'is_restaurant_owner': obj.is_restaurant_owner(),
             'is_admin': obj.is_admin_user()
         }
+class CustomerSerializer(serializers.ModelSerializer):
+    customer_profile = CustomerProfileSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'phone', 'full_name', 'avatar', 'customer_profile']
         
     def update(self, instance, validated_data):
         # Update the instance with the validated data
@@ -229,3 +235,15 @@ class PasswordChangeSerializer(serializers.Serializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField(required=True, help_text="Refresh token to blacklist")
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True, help_text="Email address for password reset")
+    
+    def validate_email(self, value):
+        try:
+            User.objects.get(email__iexact=value)
+        except User.DoesNotExist:
+            # Don't reveal if email exists or not for security
+            pass
+        return value.lower()

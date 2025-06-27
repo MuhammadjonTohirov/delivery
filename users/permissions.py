@@ -24,8 +24,8 @@ class IsCustomer(permissions.BasePermission):
     Permission check for Customer role.
     """
     
-    def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.is_customer()
+    def has_permission(self, request, view): 
+        return request.user and request.user.is_authenticated and request.user.is_customer() or request.user.is_superuser
 
 
 class IsDriver(permissions.BasePermission):
@@ -34,7 +34,7 @@ class IsDriver(permissions.BasePermission):
     """
     
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.is_driver()
+        return request.user and request.user.is_authenticated and request.user.is_driver() or request.user.is_superuser
 
 
 class IsRestaurantOwner(permissions.BasePermission):
@@ -43,7 +43,7 @@ class IsRestaurantOwner(permissions.BasePermission):
     """
     
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.is_restaurant_owner()
+        return request.user and request.user.is_authenticated and request.user.is_restaurant_owner() or request.user.is_superuser
 
 
 class IsAdminUser(permissions.BasePermission):

@@ -14,7 +14,8 @@ from .serializers import (
     UserRegistrationSerializer,
     PasswordChangeSerializer,
     CustomTokenObtainPairSerializer,
-    LogoutSerializer
+    LogoutSerializer,
+    ForgotPasswordSerializer
 )
 from .permissions import IsOwnerOrAdmin, IsCustomer, IsDriver, IsRestaurantOwner, IsAdminUser
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -272,6 +273,68 @@ class PasswordChangeView(APIView):
                 user.save()
                 return Response({"message": "Password changed successfully"}, status=status.HTTP_200_OK)
             return Response({"error": "Current password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ForgotPasswordView(APIView):
+    """
+    View to handle password reset requests.
+    """
+    permission_classes = [AllowAny]
+    
+    @extend_schema(
+        summary="Request password reset",
+        description="""
+        Send password reset email to the specified email address.
+        
+        **Note:** For security reasons, this endpoint will always return success 
+        regardless of whether the email exists in the system.
+        """,
+        request=ForgotPasswordSerializer,
+        responses={
+            200: {
+                "description": "Password reset email sent (or would be sent)",
+                "examples": {
+                    "success": {
+                        "summary": "Success Response", 
+                        "value": {"message": "If your email is registered, you will receive password reset instructions."}
+                    }
+                }
+            },
+            400: {
+                "description": "Invalid email format",
+                "examples": {
+                    "invalid_email": {
+                        "summary": "Invalid Email",
+                        "value": {"email": ["Enter a valid email address."]}
+                    }
+                }
+            }
+        }
+    )
+    def post(self, request):
+        serializer = ForgotPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            
+            try:
+                user = User.objects.get(email__iexact=email)
+                # TODO: Implement actual email sending logic here
+                # For now, just log the reset request
+                print(f"Password reset requested for user: {user.email}")
+                # In production, you would:
+                # 1. Generate a secure reset token
+                # 2. Save it to database with expiration
+                # 3. Send email with reset link
+            except User.DoesNotExist:
+                # Don't reveal if email exists for security
+                pass
+            
+            # Always return success message for security
+            return Response({
+                "message": "If your email is registered, you will receive password reset instructions."
+            }, status=status.HTTP_200_OK)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

@@ -19,6 +19,9 @@ urlpatterns = [
     # Authentication & User Management
     path('api/auth/', include('users.urls')),
     
+    # Search functionality
+    path('api/', include('core.urls')),
+    
     # Core Business Operations
     path('api/restaurants/', include('restaurants.urls')),
     path('api/orders/', include('orders.urls')),
@@ -36,6 +39,9 @@ urlpatterns = [
     # Communication & Analytics
     path('api/notifications/', include('notifications.urls')),
     path('api/analytics/', include('analytics.urls')),
+    
+    # System Settings
+    path('api/settings/', include('settings.urls')),
     
     # Frontend URLs
     path('', include('webapp.urls')),

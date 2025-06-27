@@ -90,12 +90,17 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     menu_item_name = serializers.CharField(source='menu_item.name', read_only=True)
-    currency = serializers.CharField(source='menu_item.currency', read_only=True)
+    currency = serializers.SerializerMethodField()
     
     class Meta:
         model = OrderItem
         fields = ['id', 'menu_item', 'menu_item_name', 'quantity', 'unit_price', 'subtotal', 'currency', 'notes']
         read_only_fields = ['id', 'unit_price', 'subtotal', 'menu_item_name', 'currency']
+    
+    def get_currency(self, obj):
+        """Get currency from application settings"""
+        from utils.currency_helpers import get_default_currency
+        return get_default_currency()
     
     def validate_menu_item(self, value):
         if not value.is_available:
@@ -245,12 +250,9 @@ class OrderListSerializer(serializers.ModelSerializer):
         return obj.items.count()
     
     def get_primary_currency(self, obj) -> str:
-        """Get the most common currency in the order items"""
-        from collections import Counter
-        currencies = [item.menu_item.currency for item in obj.items.all()]
-        if currencies:
-            return Counter(currencies).most_common(1)[0][0]
-        return 'USD'
+        """Get the primary currency from application settings"""
+        from utils.currency_helpers import get_default_currency
+        return get_default_currency()
 
 
 # --- Additional Detail Serializers ---
@@ -259,7 +261,7 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='menu_item.name', read_only=True)
     description = serializers.CharField(source='menu_item.description', read_only=True)
     totalPrice = serializers.SerializerMethodField(read_only=True)
-    currency = serializers.CharField(source='menu_item.currency', read_only=True)
+    currency = serializers.SerializerMethodField(read_only=True)
     imageUrl = serializers.ImageField(source='menu_item.image', read_only=True, allow_null=True)
     category = serializers.CharField(source='menu_item.category.name', read_only=True, allow_null=True)
     customizations = serializers.SerializerMethodField(read_only=True) # Placeholder
@@ -280,6 +282,11 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
     def get_customizations(self, obj):
         # Placeholder for customizations
         return []
+    
+    def get_currency(self, obj):
+        """Get currency from application settings"""
+        from utils.currency_helpers import get_default_currency
+        return get_default_currency()
 
 
 class PricingDetailSerializer(serializers.ModelSerializer):
@@ -314,12 +321,9 @@ class PricingDetailSerializer(serializers.ModelSerializer):
         return None
     
     def get_currency(self, obj):
-        """Get the primary currency of the order"""
-        from collections import Counter
-        currencies = [item.menu_item.currency for item in obj.items.all()]
-        if currencies:
-            return Counter(currencies).most_common(1)[0][0]
-        return 'USD'
+        """Get the primary currency from application settings"""
+        from utils.currency_helpers import get_default_currency
+        return get_default_currency()
 
 
 class PaymentDetailSerializer(serializers.Serializer): # No model backing this directly for now
