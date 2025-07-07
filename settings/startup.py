@@ -75,8 +75,8 @@ def get_cached_currency():
             currency = settings.default_currency
             cache.set(CURRENCY_CACHE_KEY, currency, CACHE_TIMEOUT)
         else:
-            # Fallback to USD if settings can't be loaded
-            currency = 'USD'
+            # Fallback to UZS if settings can't be loaded
+            currency = 'UZS'
     
     return currency
 
@@ -94,8 +94,8 @@ def get_cached_currency_symbol():
             symbol = settings.get_currency_symbol()
             cache.set(CURRENCY_SYMBOL_CACHE_KEY, symbol, CACHE_TIMEOUT)
         else:
-            # Fallback to $ if settings can't be loaded
-            symbol = '$'
+            # Fallback to uzs if settings can't be loaded
+            symbol = 'uzs'
     
     return symbol
 

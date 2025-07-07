@@ -14,7 +14,7 @@ class Command(BaseCommand):
             '--currency',
             type=str,
             help='Set the default currency (e.g., USD, EUR, GBP)',
-            default='USD'
+            default='UZS'
         )
         parser.add_argument(
             '--app-name',

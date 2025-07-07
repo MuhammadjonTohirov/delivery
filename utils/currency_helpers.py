@@ -12,7 +12,7 @@ def get_default_currency():
         return get_cached_currency()
     except:
         # Fallback if settings not available
-        return 'USD'
+        return 'UZS'
 
 
 def get_currency_symbol():
@@ -25,7 +25,7 @@ def get_currency_symbol():
         currency = get_default_currency()
         if currency == 'UZS':
             return 'uzs'
-        return '$'
+        return 'uzs'
 
 
 def format_price(amount, include_symbol=True):

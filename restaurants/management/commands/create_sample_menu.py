@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand
 from restaurants.models import MenuCategory, MenuItem, Restaurant
-from users.models import User
 
 
 class Command(BaseCommand):

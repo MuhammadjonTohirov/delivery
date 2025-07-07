@@ -29,7 +29,7 @@ class Payment(TimeStampedModel):
     
     # Payment details
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    currency = models.CharField(max_length=3, default='USD')
+    currency = models.CharField(max_length=3, default='UZS')
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
     status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='PENDING')
     
@@ -169,7 +169,7 @@ class PaymentTransaction(TimeStampedModel):
     # Transaction details
     transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPE_CHOICES)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    currency = models.CharField(max_length=3, default='USD')
+    currency = models.CharField(max_length=3, default='UZS')
     
     # External provider details
     provider_transaction_id = models.CharField(max_length=200)
