@@ -17,7 +17,7 @@ class MenuSerializer(serializers.ModelSerializer):
 class MenuCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = MenuCategory
-        fields = ['id', 'name', 'description', 'order', 'is_active', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'image', 'order', 'is_active', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 class MenuItemSerializer(serializers.ModelSerializer):
@@ -142,7 +142,7 @@ class MenuCategoryWithItemsSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = MenuCategory
-        fields = ['id', 'name', 'description', 'order', 'items']
+        fields = ['id', 'name', 'description', 'image', 'order', 'items']
     
     def get_items(self, obj):
         restaurant = self.context.get('restaurant')

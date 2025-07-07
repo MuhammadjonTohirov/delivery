@@ -32,7 +32,7 @@ class ApplicationSettings(models.Model):
     default_currency = models.CharField(
         max_length=3,
         choices=CURRENCY_CHOICES,
-        default='USD',
+        default='UZS',
         help_text="Default currency for the entire platform"
     )
     
@@ -109,4 +109,4 @@ class ApplicationSettings(models.Model):
             'MXN': '$',
             'UZS': 'uzs',  # Use 'uzs' instead of 'som' for consistency
         }
-        return currency_symbols.get(self.default_currency, '$')
+        return currency_symbols.get(self.default_currency, 'uzs')

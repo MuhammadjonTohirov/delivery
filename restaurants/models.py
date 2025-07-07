@@ -24,8 +24,8 @@ class Restaurant(models.Model):
     
     # Delivery Settings
     delivery_radius = models.FloatField(default=5.0)  # in miles
-    delivery_fee = models.DecimalField(max_digits=6, decimal_places=2, default=2.99)
-    minimum_order = models.DecimalField(max_digits=8, decimal_places=2, default=15.00)
+    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=2.99)
+    minimum_order = models.DecimalField(max_digits=10, decimal_places=2, default=15.00)
     service_areas = models.JSONField(default=dict, blank=True)
     
     # Contact Information
@@ -156,6 +156,7 @@ class MenuCategory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True, null=True)
+    image = models.ImageField(upload_to='menu/categories/', null=True, blank=True)
     order = models.PositiveIntegerField(default=0, help_text='Order of display')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
