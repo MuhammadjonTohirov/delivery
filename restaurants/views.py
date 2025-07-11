@@ -57,6 +57,56 @@ class RestaurantViewSet(viewsets.ModelViewSet):
             # If the user is authenticated but not an owner, show all open restaurants
             pass
         
+        # Location-based filtering for customer requests
+        user_lat = self.request.query_params.get('lat')
+        user_lng = self.request.query_params.get('lng')
+        radius = self.request.query_params.get('radius', '10')  # Default 10km radius
+        
+        if user_lat and user_lng and not (self.request.user.is_restaurant_owner() or self.request.user.is_staff):
+            try:
+                from geography.utils import get_bounding_box
+                user_lat = float(user_lat)
+                user_lng = float(user_lng)
+                radius_km = float(radius)
+                
+                # Get bounding box for efficient database filtering
+                bbox = get_bounding_box(user_lat, user_lng, radius_km)
+                
+                # Filter restaurants within bounding box first (fast DB operation)
+                queryset = queryset.filter(
+                    location_lat__gte=bbox['min_lat'],
+                    location_lat__lte=bbox['max_lat'],
+                    location_lng__gte=bbox['min_lng'],
+                    location_lng__lte=bbox['max_lng'],
+                    location_lat__isnull=False,
+                    location_lng__isnull=False
+                )
+                
+                # Add distance annotation for sorting
+                from django.db.models import Case, When, Value, FloatField
+                from geography.utils import calculate_distance
+                
+                # We'll calculate distance in Python for now, but for production
+                # consider using PostGIS for better performance
+                queryset = queryset.extra(
+                    select={
+                        'distance': '''
+                        6371 * acos(
+                            cos(radians(%s)) * cos(radians(location_lat)) * 
+                            cos(radians(location_lng) - radians(%s)) + 
+                            sin(radians(%s)) * sin(radians(location_lat))
+                        )
+                        '''
+                    },
+                    select_params=[user_lat, user_lng, user_lat],
+                    where=['6371 * acos(cos(radians(%s)) * cos(radians(location_lat)) * cos(radians(location_lng) - radians(%s)) + sin(radians(%s)) * sin(radians(location_lat))) <= %s'],
+                    params=[user_lat, user_lng, user_lat, radius_km]
+                ).order_by('distance')
+                
+            except (ValueError, TypeError):
+                # Invalid lat/lng parameters, ignore location filtering
+                pass
+        
         # Annotate with average rating for all operations
         queryset = queryset.annotate(average_rating_annotated=Avg('reviews__rating'))
         

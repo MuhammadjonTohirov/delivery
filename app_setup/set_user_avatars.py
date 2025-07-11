@@ -13,7 +13,7 @@ image_mapping = {
 for email, image_name in image_mapping.items():
     try:
         user = CustomUser.objects.get(email=email)
-        image_path = os.path.join('/Users/r/Documents/Development/Personal/Startups/delivery/server/resources/user_images', image_name)
+        image_path = os.path.join('resources/user_images', image_name)
         with open(image_path, 'rb') as f:
             user.avatar.save(image_name, File(f))
         print(f"Successfully set avatar for {email}")

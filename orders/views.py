@@ -265,6 +265,59 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     @extend_schema(
+        summary="Track order",
+        description="Get detailed tracking information for an order including status history, driver info, and estimated delivery time"
+    )
+    @action(detail=True, methods=['get'])
+    def track(self, request, pk=None):
+        order = self.get_object()
+        
+        # Get status updates (events)
+        status_updates = order.status_updates.all().order_by('created_at')
+        events = []
+        for update in status_updates:
+            events.append({
+                'status': update.status,
+                'timestamp': update.created_at.isoformat(),
+                'notes': update.notes,
+                'updated_by': update.updated_by.get_full_name() if update.updated_by else None
+            })
+        
+        # Get driver information if available
+        driver_info = None
+        if hasattr(order, 'driver_task') and order.driver_task:
+            driver = order.driver_task.driver
+            driver_info = {
+                'id': str(driver.user.id),
+                'name': driver.user.get_full_name(),
+                'phone': driver.user.phone,
+                'rating': getattr(driver, 'rating', None),
+                'vehicle_type': getattr(driver, 'vehicle_type', None),
+                'vehicle_number': getattr(driver, 'vehicle_number', None),
+            }
+        
+        # Prepare tracking data
+        tracking_data = {
+            'order_id': str(order.id),
+            'status': order.status,
+            'estimated_delivery_time': order.estimated_delivery_time.isoformat() if order.estimated_delivery_time else None,
+            'events': events,
+            'driver': driver_info,
+            'delivery_address': order.delivery_address,
+            'restaurant': {
+                'id': str(order.restaurant.id),
+                'name': order.restaurant.name,
+                'phone': order.restaurant.phone,
+                'address': order.restaurant.address,
+            },
+            'can_track': order.status in ['PICKED_UP', 'ON_THE_WAY'],
+            'is_delivered': order.status == 'DELIVERED',
+            'is_cancelled': order.status == 'CANCELLED',
+        }
+        
+        return Response(tracking_data)
+
+    @extend_schema(
         summary="Update order status",
         description="Update order status (Restaurant owner or Admin only)"
     )
